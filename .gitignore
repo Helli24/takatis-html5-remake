@@ -1,0 +1,16 @@
+# --- generated: rebuild with `python game/build.py` / tools/takatis.py
+game/takatis.html
+viewer/takatis-level-atlas.html
+viewer/data.json
+assets/
+assets_png/
+render/
+
+# --- large local reference material
+*.mp4
+
+# --- editor / OS
+.DS_Store
+Thumbs.db
+*.swp
+__pycache__/

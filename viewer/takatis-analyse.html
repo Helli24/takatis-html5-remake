@@ -1,0 +1,150 @@
+<title>Takatis Autopsie</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root{
+    --ground:#f6f5f1; --panel:#ffffff; --line:#d9d6cc; --text:#1c1f26; --muted:#5f6675;
+    --accent:#c98a12; --accent-soft:#fbf1d9; --cyan:#1d7fa3; --code-bg:#eeece5;
+    --display:'Press Start 2P',monospace; --body:'IBM Plex Sans',system-ui,sans-serif; --mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
+  }
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--ground:#0b0e14;--panel:#141a24;--line:#26313f;--text:#e8ecf2;--muted:#8a97a8;--accent:#f5b83d;--accent-soft:#2a2410;--cyan:#5ad0f0;--code-bg:#1b2330}}
+  :root[data-theme="dark"]{--ground:#0b0e14;--panel:#141a24;--line:#26313f;--text:#e8ecf2;--muted:#8a97a8;--accent:#f5b83d;--accent-soft:#2a2410;--cyan:#5ad0f0;--code-bg:#1b2330}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ground);color:var(--text);font:15px/1.6 var(--body)}
+  .wrap{max-width:74ch;margin:0 auto;padding:40px 24px 80px}
+  .eyebrow{font:10px var(--display);color:var(--accent);letter-spacing:1px;margin:0 0 14px}
+  h1{font:600 34px/1.15 var(--body);margin:0 0 8px;text-wrap:balance;letter-spacing:-.01em}
+  .lede{color:var(--muted);font-size:17px;margin:0 0 28px;max-width:60ch}
+  h2{font:600 21px/1.25 var(--body);margin:44px 0 12px;padding-top:18px;border-top:1px solid var(--line);text-wrap:balance}
+  h3{font:600 16px var(--body);margin:24px 0 6px}
+  p{margin:0 0 12px}
+  code,pre{font-family:var(--mono);font-size:13px}
+  code{background:var(--code-bg);padding:1px 5px;border-radius:3px}
+  pre{background:var(--code-bg);padding:12px 14px;border-radius:4px;overflow-x:auto;line-height:1.5;margin:10px 0 14px}
+  pre code{background:none;padding:0}
+  table{border-collapse:collapse;width:100%;font-size:13.5px;margin:10px 0 16px}
+  .tbl{overflow-x:auto}
+  th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:500}
+  td.mono,th.mono{font-family:var(--mono);font-size:12.5px;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:0 0 6px}
+  .fact{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:10px 12px}
+  .fact b{display:block;font:500 12px var(--mono);color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+  .fact span{font-size:15px;font-weight:500}
+  .callout{background:var(--accent-soft);border-left:3px solid var(--accent);padding:10px 14px;border-radius:0 4px 4px 0;margin:14px 0}
+  ul,ol{padding-left:22px;margin:0 0 12px} li{margin:3px 0}
+  a{color:var(--cyan)}
+  .path{font-family:var(--mono);font-size:12.5px;color:var(--muted)}
+  figure{margin:14px 0;background:#000;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+  figure img{display:block;width:100%;image-rendering:pixelated}
+  figcaption{font-size:12.5px;color:var(--muted);padding:6px 10px;background:var(--panel)}
+</style>
+<div class="wrap">
+<p class="eyebrow">TAKATIS · A TRIBUTE TO MANFRED TRENZ · V1.2 (2002)</p>
+<h1>Was in der Takatis-Setup-EXE steckt, und wie man das Spiel erweitern kann</h1>
+<p class="lede">Der Installer wurde statisch entpackt (nie ausgeführt), die Spiel-EXE disassembliert, alle Datenformate entschlüsselt. Ergebnis: ein Python-Toolkit, alle Assets in Standardformaten und ein interaktiver Level-Atlas aller 12 Stages.</p>
+
+<div class="facts">
+  <div class="fact"><b>Entwickler</b><span>Poke53280 (Heiko Kalista, Jörg Winterstein, Michael Matzka)</span></div>
+  <div class="fact"><b>Technik</b><span>C++ (MSVC 6, Debug-Build), DirectX 7, FMOD</span></div>
+  <div class="fact"><b>Auflösung</b><span>640×480, 8 Bit Palette, Vollbild</span></div>
+  <div class="fact"><b>Umfang</b><span>203 Dateien, 14,2 MB, 12 Stages, 6 Themen, 6 Endgegner (3D)</span></div>
+</div>
+
+<h2>1. Der Installer</h2>
+<p>Die Datei ist ein <strong>NitroSetup 1.4</strong>-Installer (Nitrobit Software, 2001), ein obskures deutsches Freeware-Setup-Tool, für das kein Entpacker existiert. Der Payload hängt als Overlay hinter der PE-Datei: Titel, Lizenztext, ein roher Uninstaller-Stub und dann eine Dateitabelle. Jede Datei ist mit einer eigenen LZSS-Variante gepackt (Flag-Byte MSB-first, Rückverweis = 16 Bit Big-Endian: 12 Bit Distanz, 4 Bit Länge+2). Die Extraktion in <span class="path">extracted/</span> ist verlustfrei, inklusive Original-Zeitstempel (Nov 2001 bis 15. Jan 2002).</p>
+
+<h2>2. Die Spiel-EXE</h2>
+<p><span class="path">Takatis.exe</span> ist am 15.01.2002 gelinkt, nicht optimiert und gegen die <em>Debug</em>-CRT gebaut, was das Disassemblieren stark vereinfacht (klare Frames, Structs mit <code>0xCC</code>-Füllung, sogar in den Leveldateien). Sie nutzt DirectDraw 7 für die 2D-Grafik, Direct3D 7 nur für die Endgegner (DirectX-<code>.x</code>-Modelle), DirectInput 7 (Tastatur, Joystick, Force Feedback), DirectSound für Effekte und FMOD für Musik (Impulse-Tracker-Module). Es gibt eine Debug-Konsole (Tab-Taste) mit Befehlen und Cheats, ein Logfile und eine Options-Datei.</p>
+<h3>Cheats und Konsolenbefehle (aus den Strings)</h3>
+<div class="tbl"><table>
+<tr><th>Eingabe</th><th>Wirkung (Meldung im Spiel)</th></tr>
+<tr><td class="mono">help / quit / infomode on|off</td><td>Befehlsliste, beenden, Leveldaten-Anzeige (Scrollposition etc.)</td></tr>
+<tr><td class="mono">bullettime mode on|off</td><td>Bullettime-Modus</td></tr>
+<tr><td class="mono">feuerwuxe / we will rock you / ping pong</td><td>Spread / Laser / Bounce auf Maximum</td></tr>
+<tr><td class="mono">silkworm / rick dangerous / the barrens</td><td>Raketen / Powerlines / Schild</td></tr>
+<tr><td class="mono">master of puppets</td><td>„99 Leben für die Loser“</td></tr>
+<tr><td class="mono">merry xmas</td><td>„…viele Extras!“</td></tr>
+<tr><td class="mono">scott me up beamy</td><td>„Das Ende ist nahe…“ (vermutlich Sprung ans Levelende)</td></tr>
+<tr><td class="mono">zerbiebomb / pfundi</td><td>„…das haut rein!!!“ / Selbstzerstörung</td></tr>
+<tr><td class="mono">crazy volcanos / wanderwuxe / katakis</td><td>„Feigling!“ / normales Raumschiff / Easter Egg</td></tr>
+<tr><td class="mono">dosenhalter</td><td>öffnet die CD-Schublade (<code>set cdaudio door open</code>)</td></tr>
+</table></div>
+<p class="callout">Die Zuordnung Cheat ↔ Meldung folgt der Reihenfolge der String-Paare im Code und ist nicht im laufenden Spiel verifiziert.</p>
+
+<h2>3. Die Dateiformate</h2>
+<p>Fast alles ist ein Standardformat mit falscher Endung. Verschleiert wurde trotzdem, und zwar an drei Stellen.</p>
+<div class="tbl"><table>
+<tr><th>Endung</th><th>Wirklich</th><th>Besonderheit</th></tr>
+<tr><td class="mono">.gfx .stc .tsa .tsb</td><td>8-Bit Windows-BMP</td><td>Scanlines sind permutiert und gespiegelt (siehe unten). Key-Farbe: reines Grün (0,255,0).</td></tr>
+<tr><td class="mono">.sfx .spc</td><td>RIFF WAV (8/16 Bit)</td><td>Chunk-Namen umbenannt: <code>WAVEfmt </code>→<code>LOSTsfx </code>, <code>data</code>→<code>twew</code></td></tr>
+<tr><td class="mono">.trk</td><td>Impulse Tracker (.it)</td><td>12 Songs, unverändert</td></tr>
+<tr><td class="mono">3D/*.a01 …</td><td>DirectX .x (Text)</td><td>Endgegner-Meshes + Skins (BMP)</td></tr>
+<tr><td class="mono">.lvl</td><td>eigenes Format</td><td>Karte + Objektliste, siehe Abschnitt 4</td></tr>
+<tr><td class="mono">Levelinfos.tsf</td><td>Permutationstabelle</td><td>keine Levelinfos: Zeile k = zufällige Permutation von 1..k, k = 1..480</td></tr>
+</table></div>
+<h3>Die Grafik-Verschleierung</h3>
+<p>Jedes Bild mit Höhe h ist zeilenweise nach der h-ten Zeile der Permutationstabelle vertauscht, zusätzlich ist jede Zeile horizontal gespiegelt. Ohne die Tabelle sieht jedes Bild wie Zeilenrauschen aus, mit ihr ist die Rekonstruktion exakt. Dieselbe Funktion rückwärts (<code>scramble_rows</code>) macht eigene Grafiken für das Originalspiel lesbar.</p>
+
+<h2>4. Das Level-Format</h2>
+<pre><code>u8   screens          Levellänge in Bildschirmen (640 px)
+u8   speed            Start-Scrollgeschwindigkeit in px/Frame
+u8[13][screens*10+10] Layer A: Parallax-Hintergrund, halbe Scrollgeschwindigkeit, Tileset NN.tsb
+u8[13][screens*20]    Layer B: Vordergrund/Kollision, Tileset NN.tsa
+u32  count
+struct { u32 type; u32 x; i32 y; u32 param; u8 minDifficulty; u8 pad[3]; } objects[count]</code></pre>
+<p>Tiles sind 32×32 px, ein Tileset hat 10×10 Kacheln, Index 0 = leer. <code>x</code> ist die Levelposition in Pixeln, <code>y</code> die Bildschirmzeile, <code>param</code> ein Index in eine 64-Einträge-Tabelle mit Bewegungsmustern (Struktgröße 320 Byte, wird zur Laufzeit erzeugt und ist noch nicht entschlüsselt). <code>minDifficulty</code> 0/1/2 = Easy/Normal/Hard: das Objekt erscheint ab dieser Stufe. Alle 13 Leveldateien lassen sich mit dem Toolkit lesen und byte-identisch zurückschreiben.</p>
+<h3>Objekttypen (aus der Init-Funktion, Größen aus den Sprites bestätigt)</h3>
+<div class="tbl"><table>
+<tr><th class="mono">Typ</th><th>Objekt</th><th class="mono">Größe</th><th class="mono">Energie</th><th class="mono">Punkte</th></tr>
+<tr><td class="mono">0</td><td>Asteroid</td><td class="mono">64×54</td><td class="mono">∞</td><td class="mono">500</td></tr>
+<tr><td class="mono">1</td><td>Razorback</td><td class="mono">52×32</td><td class="mono">1</td><td class="mono">70</td></tr>
+<tr><td class="mono">2</td><td>Spinner</td><td class="mono">56×46</td><td class="mono">15</td><td class="mono">120</td></tr>
+<tr><td class="mono">3 / 4 / 5</td><td>Powerup Spread / Laser / Bounce (nur, wenn Stufe noch nicht erreicht)</td><td class="mono">20×20</td><td class="mono">–</td><td class="mono">–</td></tr>
+<tr><td class="mono">6 / 7 / 8</td><td>Sekundär-Powerups (Item-IDs 12/13/14: Rakete, Powerline, Schild, Zuordnung offen)</td><td class="mono">20×20</td><td class="mono">–</td><td class="mono">–</td></tr>
+<tr><td class="mono">9</td><td>Container (Powerup-Träger)</td><td class="mono">36×46</td><td class="mono">6</td><td class="mono">100</td></tr>
+<tr><td class="mono">10 / 11</td><td>Turret Boden / Decke</td><td class="mono">44×41</td><td class="mono">25</td><td class="mono">140</td></tr>
+<tr><td class="mono">12</td><td>Walker</td><td class="mono">43×54</td><td class="mono">15</td><td class="mono">120</td></tr>
+<tr><td class="mono">13</td><td>Magnet (unsicher)</td><td class="mono">32×32</td><td class="mono">∞</td><td class="mono">2000</td></tr>
+<tr><td class="mono">14</td><td>Bulldozer</td><td class="mono">80×47</td><td class="mono">100</td><td class="mono">300</td></tr>
+<tr><td class="mono">15</td><td>VoltCare</td><td class="mono">49×34</td><td class="mono">15</td><td class="mono">200</td></tr>
+<tr><td class="mono">16</td><td>Circuit (unsicher)</td><td class="mono">32×32</td><td class="mono">70</td><td class="mono">250</td></tr>
+<tr><td class="mono">17</td><td>Faller</td><td class="mono">32×64</td><td class="mono">50</td><td class="mono">500</td></tr>
+<tr><td class="mono">18–21</td><td>Crystal-Block 1–4</td><td class="mono">16×16</td><td class="mono">1</td><td class="mono">10</td></tr>
+<tr><td class="mono">22 / 23</td><td>Kraftfeld-Strahl („Arnold“) / Kraftfeld-Generator</td><td class="mono">71×17 / 71×64</td><td class="mono">∞</td><td class="mono">2000</td></tr>
+<tr><td class="mono">24</td><td>x6502</td><td class="mono">84×47</td><td class="mono">50</td><td class="mono">180</td></tr>
+<tr><td class="mono">25</td><td>Elevator</td><td class="mono">56×68</td><td class="mono">20</td><td class="mono">100</td></tr>
+<tr><td class="mono">26 / 27</td><td>Presse 1 / 2</td><td class="mono">64×256</td><td class="mono">∞</td><td class="mono">2000</td></tr>
+<tr><td class="mono">28</td><td>Spikeball</td><td class="mono">72×72</td><td class="mono">120</td><td class="mono">600</td></tr>
+<tr><td class="mono">29</td><td>Volcano</td><td class="mono">80×36</td><td class="mono">∞</td><td class="mono">2000</td></tr>
+<tr><td class="mono">30</td><td>Bumper</td><td class="mono">40×40</td><td class="mono">40</td><td class="mono">400</td></tr>
+<tr><td class="mono">31</td><td>Timebomb</td><td class="mono">48×48</td><td class="mono">75</td><td class="mono">500</td></tr>
+<tr><td class="mono">32</td><td>Sharpshooter</td><td class="mono">32×32</td><td class="mono">60</td><td class="mono">600</td></tr>
+<tr><td class="mono">33</td><td>Container (Attrappe)</td><td class="mono">36×61</td><td class="mono">60</td><td class="mono">300</td></tr>
+<tr><td class="mono">34–37</td><td>Speed-Trigger: Scrollgeschwindigkeit auf 1 / 2 / 3 / 4 px/Frame</td><td class="mono">16×16</td><td class="mono">–</td><td class="mono">–</td></tr>
+<tr><td class="mono">38</td><td>Trigger (vermutlich Endgegner/Levelende)</td><td class="mono">16×16</td><td class="mono">–</td><td class="mono">–</td></tr>
+</table></div>
+
+<h2>5. Was jetzt im Projektordner liegt</h2>
+<ul>
+  <li><span class="path">extracted/</span> – die 203 Originaldateien, 1:1 wie das Setup sie installiert hätte (spielbar, sofern DirectX 7 läuft).</li>
+  <li><span class="path">assets/</span> – dieselben Daten als .bmp/.wav/.it/.x, <span class="path">assets_png/</span> – alle Grafiken entschlüsselt als PNG.</li>
+  <li><span class="path">tools/takatis.py</span> – Installer-Extraktor, Bild-Ent-/Verschlüsselung, WAV-Reparatur, Level-Parser und -Writer, Renderer.</li>
+  <li><span class="path">viewer/takatis-level-atlas.html</span> – der interaktive Level-Atlas (alle 12 Stages, beide Layer, Objekte, Schwierigkeitsfilter).</li>
+</ul>
+
+<h2>6. Erweitern: drei Wege</h2>
+<h3>A. Modding des Originals (schnell, begrenzt)</h3>
+<p>Mit dem Toolkit lassen sich neue Level bauen (Karte + Objektliste, byte-exakt), Grafiken und Tilesets austauschen (re-scramblen) und Sounds ersetzen. Grenzen: die Engine bleibt 640×480 mit 8-Bit-Palette und exklusivem DirectDraw-Vollbild, was auf Windows 11 typischerweise nur mit einem Wrapper wie DDrawCompat oder dgVoodoo2 läuft. Neue Gegnertypen oder Waffen gehen nur per Binärpatch.</p>
+<h3>B. Binärpatches (mittel)</h3>
+<p>Der Debug-Build ist gut lesbar. Realistisch sind kleine Eingriffe: Fenstermodus-Flag, Framebremse, Schwierigkeitswerte, Cheats freischalten. Für echte neue Inhalte ist der Aufwand höher als ein Neubau.</p>
+<h3>C. Remake mit den Originaldaten (nachhaltig)</h3>
+<p>Der Level-Atlas rendert bereits Karten, Parallax und Objektpositionen aus den Originaldaten im Browser. Von dort zum spielbaren Remake fehlen: Spielerschiff und Waffen, Kollision gegen Layer B, die Bewegungsmuster der Gegner (Tabelle mit 64 Einträgen, entweder aus dem Code rekonstruieren oder neu entwerfen), die Endgegner (Meshes vorhanden) und Musik (Impulse-Tracker-Module laufen im Browser z. B. über libopenmpt). Danach ist alles erweiterbar: neue Stages, Gegner, Waffen, höhere Auflösung, Gamepad, Highscore-Sync.</p>
+<p class="callout">Empfehlung: Weg C als Ziel, Weg A als Sofortmaßnahme, wenn das Original noch auf dem heutigen Rechner startet.</p>
+
+<h2>7. Offene Punkte</h2>
+<ul>
+  <li>Bewegungsmuster-Tabelle (<code>param</code>) und die Endgegner-Logik sind nicht rekonstruiert.</li>
+  <li>Typen 13, 16, 22 und 38 sowie die Zuordnung der drei Sekundär-Powerups sind Ableitungen aus Sprite-Größen und Kontext.</li>
+  <li>Das Original wurde in dieser Analyse nicht gestartet; ob es auf Windows 11 läuft, ist ungetestet.</li>
+</ul>
+</div>

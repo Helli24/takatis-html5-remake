@@ -1,0 +1,2150 @@
+--------------------------------------------
+-The MeanScreenMachine  (C)TheWanderer 2001-
+--------------------------------------------
+
+Initialisieren von Takatis...
+
+Optionen wurden geladen
+
+Sinus-Tabelle wurde erstellt !
+
+------------------------------------
+- Initialisierung von DirectDraw 7 -
+------------------------------------
+-
+SM_DDraw7_Init: DirectDrawCreateEx () erfolgreich !
+SM_DDraw7_Init: SetCooperativeLevel () erfolgreich !
+SM_DDraw7_Init: SetDisplayMode () erfolgreich !
+SM_DDraw7_Init: CreateSurface () erfolgreich !
+SM_DDraw7_Init: GetAttachedSurface () erfolgreich !
+SM_DDraw7_Init: GammaControl : QueryInterface () erfolgreich !
+SM_DDraw7_Init  : Erstellen der Scrollsurface erfolgreich !
+SM_DDraw7_Init  : Erstellen der Buffer-Surface erfolgreich !
+
+Direct3D Initialisierung
+SM_D3D7_Init  : Erstellen der 3D-Offscreensurface erfolgreich !
+SM_D3D7_Init  : QueryInterface () erfolgreich !
+SM_D3D7_Init  : CreateDevice () erfolgreich !
+SM_D3D7_Init  : SetViewport () erfolgreich !
+SM_D3D7_Init  : SetProjectionMatrix () erfolgreich !
+SM_D3D7_Init  : SetTransform () erfolgreich !
+LoadBitmap (gfx/Loading.gfx) erfolgreich !
+LoadBitmap (gfx/pl.gfx) erfolgreich !
+
+
+-------------------------------------
+- Initialisierung von DirectSound 7 -
+-------------------------------------
+-
+DirectSoundCreate erfolgreich !
+SM_DSound7_SetCooperativeLevel () erfolgreich !
+Initialisieren von DirectSound erfolgreich !
+FMOD Initialisierung  erfolgreich !
+
+
+--------------------
+- Laden der Sounds -
+--------------------
+-
+LoadSound (sfx/Explosion.sfx) erfolgreich !
+LoadSound (sfx/BigExplosion.sfx) erfolgreich !
+LoadSound (sfx/Spread.sfx) erfolgreich !
+LoadSound (sfx/Beam.sfx) erfolgreich !
+LoadSound (sfx/hit.sfx) erfolgreich !
+LoadSound (sfx/Rocket.sfx) erfolgreich !
+LoadSound (sfx/Laser.sfx) erfolgreich !
+LoadSound (sfx/Laser2.sfx) erfolgreich !
+LoadSound (sfx/Bounce.sfx) erfolgreich !
+LoadSound (sfx/Shield.sfx) erfolgreich !
+LoadSound (sfx/Powerline.sfx) erfolgreich !
+LoadSound (sfx/Morph.sfx) erfolgreich !
+LoadSound (sfx/Bigshot.sfx) erfolgreich !
+LoadSound (sfx/Trigger.sfx) erfolgreich !
+LoadSound (sfx/klippikloppi.sfx) erfolgreich !
+LoadSound (speech/intro.spc) erfolgreich !
+LoadSound (speech/cheat.spc) erfolgreich !
+LoadSound (speech/online.spc) erfolgreich !
+LoadSound (speech/bounce.spc) erfolgreich !
+LoadSound (speech/laser.spc) erfolgreich !
+LoadSound (speech/spread.spc) erfolgreich !
+LoadSound (speech/homing.spc) erfolgreich !
+LoadSound (speech/line.spc) erfolgreich !
+LoadSound (speech/shield.spc) erfolgreich !
+LoadSound (speech/1up.spc) erfolgreich !
+LoadSound (speech/bigone.spc) erfolgreich !
+
+
+---------------------
+- Laden der Bitmaps -
+---------------------
+-
+LoadBitmap (gfx/backside.gfx) erfolgreich !
+LoadBitmap (gfx/backside.gfx) erfolgreich !
+LoadBitmap (gfx/title.gfx) erfolgreich !
+LoadBitmap (gfx/intro.gfx) erfolgreich !
+LoadBitmap (gfx/intro2.gfx) erfolgreich !
+LoadBitmap (gfx/CreditsLogo.gfx) erfolgreich !
+LoadBitmap (gfx/menu.gfx) erfolgreich !
+LoadBitmap (gfx/volume.gfx) erfolgreich !
+LoadBitmap (gfx//volumebar.gfx) erfolgreich !
+LoadBitmap (gfx/rahmen.gfx) erfolgreich !
+LoadBitmap (gfx/font.gfx) erfolgreich !
+LoadBitmap (gfx/font2.gfx) erfolgreich !
+LoadBitmap (gfx/hud-oben.gfx) erfolgreich !
+LoadBitmap (gfx/hud-unten.gfx) erfolgreich !
+LoadBitmap (gfx/beam-load.gfx) erfolgreich !
+LoadBitmap (gfx/player.gfx) erfolgreich !
+LoadBitmap (gfx/player.gfx) erfolgreich !
+LoadBitmap (gfx/player2.gfx) erfolgreich !
+LoadBitmap (gfx/star.gfx) erfolgreich !
+LoadBitmap (gfx/ws.gfx) erfolgreich !
+LoadBitmap (gfx/powerups.gfx) erfolgreich !
+LoadBitmap (gfx/shield.gfx) erfolgreich !
+LoadBitmap (gfx/getready.gfx) erfolgreich !
+LoadBitmap (gfx/gameover.gfx) erfolgreich !
+LoadBitmap (gfx/creditstile.gfx) erfolgreich !
+LoadBitmap (gfx/title.gfx) erfolgreich !
+LoadBitmap (gfx/rail.gfx) erfolgreich !
+LoadBitmap (gfx/endscreen.gfx) erfolgreich !
+LoadBitmap (gfx/BossHud.gfx) erfolgreich !
+LoadBitmap (gfx/BossEnergy.gfx) erfolgreich !
+LoadBitmap (gfx/Logo.gfx) erfolgreich !
+LoadBitmap (gfx/fadeleft.gfx) erfolgreich !
+LoadBitmap (gfx/faderight.gfx) erfolgreich !
+LoadBitmap (gfx/player-energy.gfx) erfolgreich !
+LoadBitmap (gfx/Explosion.gfx) erfolgreich !
+LoadBitmap (gfx/Explosion2.gfx) erfolgreich !
+LoadBitmap (gfx/BeamExplode.gfx) erfolgreich !
+LoadBitmap (gfx/Small_Explosion.gfx) erfolgreich !
+LoadBitmap (gfx/Debris1.gfx) erfolgreich !
+LoadBitmap (gfx/Debris2.gfx) erfolgreich !
+LoadBitmap (gfx/Debris3.gfx) erfolgreich !
+LoadBitmap (gfx/Debris4.gfx) erfolgreich !
+LoadBitmap (gfx/Debris5.gfx) erfolgreich !
+LoadBitmap (gfx/Smoke.gfx) erfolgreich !
+LoadBitmap (gfx/Lasersmoke.gfx) erfolgreich !
+LoadBitmap (gfx/Shieldflare.gfx) erfolgreich !
+LoadBitmap (gfx/drive.gfx) erfolgreich !
+LoadBitmap (gfx/Asteroid.gfx) erfolgreich !
+LoadBitmap (gfx/RazorBack.gfx) erfolgreich !
+LoadBitmap (gfx/Spinner.gfx) erfolgreich !
+LoadBitmap (gfx/Container.gfx) erfolgreich !
+LoadBitmap (gfx/turret-floor.gfx) erfolgreich !
+LoadBitmap (gfx/turret-ceiling.gfx) erfolgreich !
+LoadBitmap (gfx/walker.gfx) erfolgreich !
+LoadBitmap (gfx/circuit.gfx) erfolgreich !
+LoadBitmap (gfx/bulldozer.gfx) erfolgreich !
+LoadBitmap (gfx/voltcare.gfx) erfolgreich !
+LoadBitmap (gfx/magnet.gfx) erfolgreich !
+LoadBitmap (gfx/faller.gfx) erfolgreich !
+LoadBitmap (gfx/block1.gfx) erfolgreich !
+LoadBitmap (gfx/block2.gfx) erfolgreich !
+LoadBitmap (gfx/block3.gfx) erfolgreich !
+LoadBitmap (gfx/block4.gfx) erfolgreich !
+LoadBitmap (gfx/arnold.gfx) erfolgreich !
+LoadBitmap (gfx/kraftfeld.gfx) erfolgreich !
+LoadBitmap (gfx/x6502.gfx) erfolgreich !
+LoadBitmap (gfx/elevator.gfx) erfolgreich !
+LoadBitmap (gfx/presse1.gfx) erfolgreich !
+LoadBitmap (gfx/presse2.gfx) erfolgreich !
+LoadBitmap (gfx/spikeball.gfx) erfolgreich !
+LoadBitmap (gfx/Volcano.gfx) erfolgreich !
+LoadBitmap (gfx/Bumper.gfx) erfolgreich !
+LoadBitmap (gfx/Timebomb.gfx) erfolgreich !
+LoadBitmap (gfx/Sharpshooter.gfx) erfolgreich !
+LoadBitmap (gfx/Containerfake.gfx) erfolgreich !
+LoadBitmap (gfx/dragontail.gfx) erfolgreich !
+LoadBitmap (gfx/SpreadShot.gfx) erfolgreich !
+LoadBitmap (gfx/BeamMini.gfx) erfolgreich !
+LoadBitmap (gfx/BeamSmall.gfx) erfolgreich !
+LoadBitmap (gfx/BeamMed.gfx) erfolgreich !
+LoadBitmap (gfx/BeamBig.gfx) erfolgreich !
+LoadBitmap (gfx/PowerLine.gfx) erfolgreich !
+LoadBitmap (gfx/Blob1.gfx) erfolgreich !
+LoadBitmap (gfx/Laser.gfx) erfolgreich !
+LoadBitmap (gfx/Bounce1.gfx) erfolgreich !
+LoadBitmap (gfx/Bounce2.gfx) erfolgreich !
+LoadBitmap (gfx/Bounce3.gfx) erfolgreich !
+LoadBitmap (gfx/Rocket.gfx) erfolgreich !
+LoadBitmap (gfx/pu_rocket.gfx) erfolgreich !
+LoadBitmap (gfx/pu_line.gfx) erfolgreich !
+LoadBitmap (gfx/pu_shield.gfx) erfolgreich !
+LoadBitmap (gfx/pu_spread.gfx) erfolgreich !
+LoadBitmap (gfx/pu_laser.gfx) erfolgreich !
+LoadBitmap (gfx/pu_bounce.gfx) erfolgreich !
+LoadBitmap (gfx/pu_oneup.gfx) erfolgreich !
+LoadBitmap (gfx/turret-bullet.gfx) erfolgreich !
+LoadBitmap (gfx/walkershot.gfx) erfolgreich !
+LoadBitmap (gfx/bullspread.gfx) erfolgreich !
+LoadBitmap (gfx/chaseshot.gfx) erfolgreich !
+LoadBitmap (gfx/mine.gfx) erfolgreich !
+LoadBitmap (gfx/elevatorshot.gfx) erfolgreich !
+LoadBitmap (gfx/spike1.gfx) erfolgreich !
+LoadBitmap (gfx/spike2.gfx) erfolgreich !
+LoadBitmap (gfx/PowerLine.gfx) erfolgreich !
+LoadBitmap (gfx/Volcanoball.gfx) erfolgreich !
+LoadBitmap (gfx/Console.gfx) erfolgreich !
+
+-------------------------------------
+- Initialisierung von DirectInput 7 -
+-------------------------------------
+-
+SM_DInput7_Init: DirectInputCreateEx () erfolgreich !
+SM_DInput7_Init: CreateDeviceEx () für Keyboard erfolgreich !
+SM_DInput7_Init: SetDataFormat () für Keyboard erfolgreich !
+SM_DInput7_Init: SetCooperativeLevel () für Keyboard erfolgreich !
+SM_DInput7_Init: Acquire () für Keyboard erfolgreich !
+SM_DInput7_Init: EnumDevices erfolgreich !
+SM_DInput7_Init: Kein Joystick vorhanden !
+
+Takatis wurde erfolgreich initialisiert !
+---------------------------------------------
+
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+SM_DDraw7_GammaControl gescheitert !
+Code: DDERR_INVALIDPARAMS
+
+----->  -2147024809
+Takatis wird beendet...
+
+Freigeben der Objekte...
+Grafiken wurden freigegeben...
+SM_DDraw7_Quit: PrimarySurface und Hauptobjekt wurden freigegeben !
+SM_DInput7_Quit: Objekte freigegeben !
+
+Takatis wurde erfolgreich beendet !
