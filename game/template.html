@@ -175,12 +175,13 @@ function bossSegments(){for(let k=1;k<=10;k++){const a=HND.enemies+k*REC;if(V.r3
 const GL={cv:null,gl:null,prog:null,buf:{},tex:{},ready:false};
 function glInit(){if(GL.ready)return true;try{const c=document.createElement('canvas');c.width=320;c.height=270;
   const gl=c.getContext('webgl',{alpha:true,premultipliedAlpha:false,antialias:false,preserveDrawingBuffer:true});if(!gl)return false;
-  // D3D7 lights per vertex (Gouraud shading) with renormalised normals (D3DRENDERSTATE_NORMALIZENORMALS); white
-  // material, white light, no ambient and no specular, the texture is modulated with the vertex colour
+  // D3D7 lights per vertex (Gouraud shading) with renormalised normals (D3DRENDERSTATE_NORMALIZENORMALS); the
+  // material of the file (diffuse = ambient = faceColor, no emissive), white light, no ambient light and no specular;
+  // the texture is modulated with the vertex colour and the result lands in a 16 bit (RGB565) surface
   const vs=`attribute vec3 p;attribute vec3 n;attribute vec2 t;uniform mat4 mdl;uniform mat4 nrm;uniform mat4 prj;varying float vd;varying vec2 vt;
     void main(){gl_Position=prj*(mdl*vec4(p,1.0));vd=max(dot(normalize((nrm*vec4(n,0.0)).xyz),normalize(vec3(-1.0,1.0,-1.0))),0.0);vt=t;}`;
   const fs=`precision mediump float;varying float vd;varying vec2 vt;uniform sampler2D s;uniform float useTex;uniform vec3 col;
-    void main(){vec3 c=useTex>0.5?texture2D(s,vt).rgb:col;gl_FragColor=vec4(c*vd,1.0);}`;
+    void main(){const vec3 Q=vec3(31.0,63.0,31.0);vec3 c=(useTex>0.5?texture2D(s,vt).rgb:vec3(1.0))*col*vd;gl_FragColor=vec4(floor(c*Q+0.01)/Q,1.0);}`;
   const sh=(ty,src)=>{const h=gl.createShader(ty);gl.shaderSource(h,src);gl.compileShader(h);if(!gl.getShaderParameter(h,gl.COMPILE_STATUS))throw gl.getShaderInfoLog(h);return h;};
   const pr=gl.createProgram();gl.attachShader(pr,sh(gl.VERTEX_SHADER,vs));gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,fs));gl.linkProgram(pr);
   GL.cv=c;GL.gl=gl;GL.prog=pr;GL.loc={p:gl.getAttribLocation(pr,'p'),n:gl.getAttribLocation(pr,'n'),t:gl.getAttribLocation(pr,'t'),mdl:gl.getUniformLocation(pr,'mdl'),
@@ -206,7 +207,8 @@ function bossRender(){if(!glInit())return;const gl=GL.gl;gl.viewport(0,0,320,270
     const mdl=mmul(new Float32Array([sc,0,0,0,0,sc,0,0,0,0,sc,0,0,0,0,1]),fw);
     gl.uniformMatrix4fv(GL.loc.mdl,false,mdl);gl.uniformMatrix4fv(GL.loc.nrm,false,fw);
     if(m.tex&&GL.tex[m.tex]){gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,GL.tex[m.tex]);gl.uniform1i(GL.loc.s,0);gl.uniform1f(GL.loc.useTex,1);}
-    else{gl.uniform1f(GL.loc.useTex,0);gl.uniform3fv(GL.loc.col,m.color);}
+    else gl.uniform1f(GL.loc.useTex,0);   // no texture name: the stage has no texture and passes the lit colour on
+    gl.uniform3fv(GL.loc.col,m.color);
     gl.bindBuffer(gl.ARRAY_BUFFER,b.p);gl.enableVertexAttribArray(GL.loc.p);gl.vertexAttribPointer(GL.loc.p,3,gl.FLOAT,false,0,0);
     gl.bindBuffer(gl.ARRAY_BUFFER,b.n);gl.enableVertexAttribArray(GL.loc.n);gl.vertexAttribPointer(GL.loc.n,3,gl.FLOAT,false,0,0);
     gl.bindBuffer(gl.ARRAY_BUFFER,b.t);gl.enableVertexAttribArray(GL.loc.t);gl.vertexAttribPointer(GL.loc.t,2,gl.FLOAT,false,0,0);

@@ -13,7 +13,9 @@ def parse_x(path):
     m = re.search(r'TextureFilename\s*\{\s*"([^"]+)"', txt, re.I)
     if m:
         out['texture'] = m.group(1).split('/')[-1].lower()
-    m = re.search(r'Material\s+[\w\-]*\s*\{\s*([^;]+;;)', txt)
+    # Material { faceColor RGBA; power; specular RGB; emissive RGB; [TextureFilename] }, the numbers separated by ',' or
+    # ';'; the DX7 loader (0x42e929) takes faceColor as diffuse and ambient colour
+    m = re.search(r'(?<![\w])Material(?!List)\s*[\w\-]*\s*\{([^{}]*)', txt)
     if m:
         out['color'] = _nums(m.group(1))[:4]
     m = re.search(r'FrameTransformMatrix\s*\{([^}]*)\}', txt)

@@ -18,9 +18,22 @@ def png_bytes(w, h, rows):
             + chunk(b'IDAT', zlib.compress(raw, 9)) + chunk(b'IEND', b''))
 
 
+def q565(c):
+    """A colour as the game shows it: it runs in 640x480 with 16 bits (0x485648), GDI truncates the bitmap colours to
+    RGB565 when they are copied into the surfaces; the remake expands them again by repeating the top bits."""
+    r, g, b = c[0] >> 3, c[1] >> 2, c[2] >> 3
+    return (r << 3 | r >> 2, g << 2 | g >> 4, b << 3 | b >> 2)
+
+
+# the colour key of all keyed surfaces (0x412770) is the green mask of the pixel format, so every colour that
+# truncates to pure green is transparent, e.g. (0,253,0) in Lasersmoke and (0,254,0) in 03.tsb
+KEY565 = q565((0, 255, 0))
+
+
 def img_b64(path, key=True):
     w, h, pal, px = load_bmp8(path)
-    keyidx = {i for i, c in enumerate(pal) if c == (0, 255, 0)} if key else set()
+    pal = [q565(c) for c in pal]
+    keyidx = {i for i, c in enumerate(pal) if c == KEY565} if key else set()
     rows = []
     for y in range(h):
         row = bytearray()
@@ -223,7 +236,7 @@ def bmp_any_png(path):
     h = abs(h)
     rows = []
     if bpp == 8:
-        pal = [tuple(d[54 + i * 4:54 + i * 4 + 3][::-1]) for i in range(256)]
+        pal = [q565(tuple(d[54 + i * 4:54 + i * 4 + 3][::-1])) for i in range(256)]
         stride = (w + 3) & ~3
         raw = [d[off + y * stride:off + y * stride + w] for y in range(h)][::-1]
         for r in raw:
@@ -232,7 +245,7 @@ def bmp_any_png(path):
         stride = (w * 3 + 3) & ~3
         raw = [d[off + y * stride:off + y * stride + w * 3] for y in range(h)][::-1]
         for r in raw:
-            rows.append(b''.join(bytes((r[i + 2], r[i + 1], r[i])) + b'\xff' for i in range(0, w * 3, 3)))
+            rows.append(b''.join(bytes(q565((r[i + 2], r[i + 1], r[i]))) + b'\xff' for i in range(0, w * 3, 3)))
     return 'data:image/png;base64,' + base64.b64encode(png_bytes(w, h, rows)).decode()
 
 
