@@ -63,7 +63,7 @@ SPRITES = {
     'hudtop': ('hud-oben', 640, 16), 'ws': ('ws', 7, 10), 'hudbottom': ('hud-unten', 640, 48), 'energy': ('player-energy', 56, 9),
     'font': ('font', 10, 14), 'font2': ('font2', 8, 10), 'bigfont': ('bigfont', 32, 32),
     'title': ('title', 640, 480), 'getready': ('getready', 329, 56), 'gameover': ('gameover', 429, 56), 'logo': ('logo', 640, 140),
-    'endscreen': ('Endscreen', 640, 480), 'menu': ('menu', 224, 64), 'rahmen': ('rahmen', 32, 32), 'loading': ('loading', 280, 146),
+    'endscreen': ('Endscreen', 640, 480), 'fadeleft': ('fadeleft', 120, 480), 'faderight': ('faderight', 120, 480), 'menu': ('menu', 224, 64), 'rahmen': ('rahmen', 32, 32), 'loading': ('loading', 280, 146),
     # enemies by type
     'e0': ('asteroid', 64, 54), 'e1': ('Razorback', 52, 32), 'e2': ('spinner', 56, 46), 'e9': ('container', 36, 46),
     'e10': ('turret-floor', 44, 41), 'e11': ('turret-ceiling', 44, 41), 'e12': ('walker', 43, 54), 'e13': ('circuit', 32, 32),
@@ -173,6 +173,17 @@ for ins in _md.disasm(_img[0x4163ea - _pe.OPTIONAL_HEADER.ImageBase:0x416a12 - _
 assert all(len(x) == 3 for x in data['intro'])
 # proportional font (0x40e2a0, width 0x40e0e0): advance = width[c]+1, a space adds 10
 data['fontW'] = list(struct.unpack('<128i', _img[0x484820 - _pe.OPTIONAL_HEADER.ImageBase:0x484a20 - _pe.OPTIONAL_HEADER.ImageBase]))
+
+# the end (0x42a250): Level/ot.lvl is an enemy parade whose foreground tiles come from bigfont.gfx; below it runs
+# the text at 0x4766d8
+_lv = Level(os.path.join(EX, 'Level', 'ot.lvl'))
+_scr = level_screens(_lv)
+_wa = layer_a_width(_scr)
+_A, _B = _lv.split_layers(_wa)
+data['outro'] = {'stage': '', 'hint': '', 'theme': 7, 'screens': _scr, 'speed': level_speed(_lv), 'wa': _wa, 'wb': _scr * 20,
+                 'A': base64.b64encode(b''.join(_A)).decode(), 'B': base64.b64encode(b''.join(_B)).decode(),
+                 'objects': sorted([[o['type'], o['x'], (o['y'] - 2**32 if o['y'] >= 2**31 else o['y']), o['param'], o['flag']] for o in _lv.objects], key=lambda o: o[1]),
+                 'text': _cstr(0x4766d8)}
 
 # 3D bosses: DirectX .x meshes as triangle lists in object space (per corner: position, normal, uv). The game scales
 # the vertices (CD3DFile::Scale) and applies the frame matrix and the world matrix at render time.

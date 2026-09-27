@@ -34,10 +34,12 @@ async function loadAssets(){
   for(const k in DATA.sprites){const d=DATA.sprites[k];S[k]={...d,img:await loadImg(d.src)};}
   for(const t in DATA.themes){T[t]={};for(const k of ['tsa','tsb','stc'])T[t][k]=await loadImg(DATA.themes[t][k]);}
   for(const k in DATA.skins)SKIN[k]=await loadImg(DATA.skins[k]);
+  T[7]={tsa:S.bigfont.img};   // the end uses bigfont.gfx as its foreground tiles
 }
 function b64(s){const b=atob(s),a=new Uint8Array(b.length);for(let i=0;i<b.length;i++)a[i]=b.charCodeAt(i);return a;}
 const PATHS=DATA.paths;
 const LEVELS=DATA.levels.map(l=>({...l,A:b64(l.A),B:b64(l.B)}));
+const OUTRO_LV={...DATA.outro,A:b64(DATA.outro.A),B:b64(DATA.outro.B)};   // level 12: the end
 
 // ---------- audio
 let AC=null;const buffers={};let muted=false;
@@ -285,13 +287,13 @@ function turretStep(e,d){const A=e.an;A.col=1;if(P.x+50<e.x)A.col=0;if(P.x>e.x+4
 // ---------- game state
 window.G=window.G||{};const G={state:'menu',level:0,scroll:0,speed:1,maxScroll:0,next:0,lives:5,score:0,diff:0,info:false,t:0,frame:0,
   enemies:[],shots:[],timer:0,music:null,gamma:100,endPhase:0,endT:0,bossActive:false,savedSpeed:0,hiscore:0,menuSel:0,startRow:0,slotSel:0,optSel:0,page:0,creditY:0,slot:null,sfxVol:1};
-let P;window.__dbg=()=>({G,P,MUSIC});window.__boss=()=>({phase:BOSS.phase,state:V.r32(0x494160),cnt:V.r32(0x49404c),hp:V.r32(0x494050),bx:V.r32(0x4948b8),by:V.r32(0x496458),draws:BOSS.draws.length,blits:BOSS.blits.length});window.__tick=(n)=>{for(let i=0;i<n;i++)step();render();};window.__startBoss=(id)=>{G.lives=5;G.score=0;P=null;G.level=2*id-1;startLevel(2*id-1,level().wb*32-641);G.state='play';G.gamma=100;};window.__fx=()=>({part:PART.length,expl:EXPL.length,shots:G.shots.length});window.__lv=(i)=>{P=null;startLevel(i);G.state='play';G.gamma=100;};window.__eshot=(x,y,spr)=>eshot(x,y,0,0,spr);window.__probe=()=>({tile:!!tileHit(shipShape()),ram:G.enemies.filter(e=>!e.dead&&enemyTouch(shipShape(),e)).map(e=>e.type)});window.__GL=()=>GL;window.__rerender=()=>bossRender();
+let P;window.__dbg=()=>({G,P,MUSIC});window.__boss=()=>({phase:BOSS.phase,state:V.r32(0x494160),cnt:V.r32(0x49404c),hp:V.r32(0x494050),bx:V.r32(0x4948b8),by:V.r32(0x496458),draws:BOSS.draws.length,blits:BOSS.blits.length});window.__tick=(n)=>{for(let i=0;i<n;i++)step();render();};window.__startBoss=(id)=>{G.lives=5;G.score=0;P=null;G.level=2*id-1;startLevel(2*id-1,level().wb*32-641);G.state='play';G.gamma=100;};window.__fx=()=>({part:PART.length,expl:EXPL.length,shots:G.shots.length});window.__lv=(i)=>{P=null;startLevel(i);G.state='play';G.gamma=100;};window.__eshot=(x,y,spr)=>eshot(x,y,0,0,spr);window.__end=()=>{if(!P)P=newPlayer();endStart();};window.__probe=()=>({tile:!!tileHit(shipShape()),ram:G.enemies.filter(e=>!e.dead&&enemyTouch(shipShape(),e)).map(e=>e.type)});window.__GL=()=>GL;window.__rerender=()=>bossRender();
 // player values from Takatis.exe: new game 0x420bf4, level (re)start 0x426710, update 0x41ced0
 function newPlayer(){return {x:10,y:184,w:49,h:34,energy:3,dead:0,bank:0,cool:0,swcool:0,weapon:0,lvl:[1,0,0],rockets:5,lines:3,beam:0,latch:{},
   shieldOn:false,shieldT:0,shieldF:0,shieldC:0,hum:false,shieldDraw:[],boomed:false,spd:3};}
 const START_LIVES=[5,4,3];   // per difficulty (0x4230a7)
 
-function level(){return LEVELS[G.level];}
+function level(){return G.level===12?OUTRO_LV:LEVELS[G.level];}
 // a respawn keeps the scroll speed of the moment of death (0x4267b6); objects only become active while their x passes
 // the window 635..640 px ahead of the scroll position (0x40a2ca), so everything already on screen at a restart stays away
 // the intro (0x416301) resets the level state (0x426710): no boss, phase 0, lists emptied, shield hum off; after
@@ -778,7 +780,40 @@ function drawSave(){ctx.drawImage(G.saveImg,0,0);rahmen(64,96,15,8);
       text(String(sv.score),500,y,0);}
     text(String(i+1),120,y,0);}
   ctx.drawImage(S.star.img,48,0,24,24,90,194+G.saveSel*25,24,24);}
-function endStart(){G.state='end';G.timer=600;musicPlay('end');}
+// ---------- the end (state 10, 0x42a250): Endscreen.gfx behind the enemy parade of Level/ot.lvl (its foreground tiles
+// are the letters of bigfont.gfx), scrolling 1 px per frame and starting over after 13200; below it the text at
+// 0x4766d8 in row 6 of the font, every screen column moved by a sine wave whose size swings between -5 and 0.3
+// (F7/F8 change it); the walker bobs on the left; the edges are faded by fadeleft/faderight. Escape ends the game.
+const END={cv:null,txt:0,px:10,sub:2,amp:0,up:false,cnt:0,ys:new Int16Array(640),off:0,buf:'',bufPx:10};
+function endStart(){G.state='end';G.level=12;const l=level();   // level 0xff: ot.lvl, the ship back at (10,200)
+  G.scroll=0;G.speed=l.speed;G.maxScroll=l.wb*32-640;G.enemies=[];G.shots=[];PART=[];EXPL=[];G.next=0;
+  G.bossActive=false;BOSS.phase=null;G.endPhase=0;G.gamma=100;sfxStop('shield');P.x=10;P.y=184;
+  if(!END.cv){END.cv=document.createElement('canvas');END.cv.width=800;END.cv.height=16;}
+  Object.assign(END,{txt:0,px:10,sub:2,amp:0,up:false,cnt:0});musicPlay('end');}
+function endStep(){
+  if(pressed.Escape){G.state='gameover';G.timer=240;musicPlay('highscore');return;}
+  G.scroll++;updateEnemies();tilePass();G.enemies=G.enemies.filter(e=>!e.dead);shotsStep();partStep();explStep();
+  if(G.scroll>13200)G.scroll=0;
+  const txt=DATA.outro.text;END.buf=txt.substr(END.txt,70);END.bufPx=END.px;
+  if(END.sub===0){END.px--;END.sub=1;}END.sub--;
+  if(END.px<0){const c=txt.charCodeAt(END.txt)||0;END.px=FW[c]||10;if(++END.txt>1040)END.txt=0;}
+  const f=Math.fround,A=()=>END.amp;
+  if(keys.F7)END.amp=f(A()-f(0.1));if(keys.F8)END.amp=f(A()+f(0.1));
+  if(!END.up)END.amp=f(A()-f(0.05));else END.amp=f(A()+f(0.08));
+  if(A()<-5){END.up=true;END.amp=-5;}if(A()>f(0.3)){END.up=false;END.amp=f(0.3);}
+  let ph=0;for(let x=0;x<W;x++){END.ys[x]=Math.trunc(Math.sin(f(0.005)*A()*x+ph)*-5*A()*-1);ph=f(ph+f(0.01));if(ph>=10)ph=0;}
+  END.off=Math.trunc(Math.sin(END.cnt*f(0.0363)+ph)*45);if(++END.cnt===300000)END.cnt=0;}
+function drawEnd(){const l=level();ctx.drawImage(S.endscreen.img,0,0);
+  ctx.save();ctx.translate(0,PY);
+  const drawEnemy=e=>{if(e.spr)frame(e.spr,e.f,e.x+(e.type===17?G.shake:0),e.y,e.dir<0);};
+  for(const e of G.enemies)if(e.type!==26&&e.type!==27)drawEnemy(e);
+  drawLayer(l.B,l.wb,S.bigfont.img,Math.floor(G.scroll));
+  for(const e of G.enemies)if(e.type===26||e.type===27)drawEnemy(e);
+  shotsDraw();partDraw();explDraw();ctx.restore();
+  const g=END.cv.getContext('2d'),keep=ctx;g.clearRect(0,0,800,16);ctx=g;try{text(END.buf,END.bufPx,0,6);}finally{ctx=keep;}
+  for(let x=0;x<W;x++)ctx.drawImage(END.cv,x,0,1,16,x,END.ys[x]+150,1,16);
+  const o=END.off,sx=o>24&&o<50?0:o>0&&o<25?43:86;ctx.drawImage(S.e12.img,sx,0,43,54,130,o+57,43,54);
+  ctx.drawImage(S.fadeleft.img,0,0);ctx.drawImage(S.faderight.img,520,0);}
 
 // ---------- render
 function drawLayer(map,w,ts,ox){const c0=Math.max(0,Math.floor(ox/32)),c1=Math.min(w-1,Math.floor((ox+W)/32));
@@ -855,6 +890,7 @@ function render(){ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);
   if(G.state==='title'){ctx.drawImage(S.title.img,0,0);ctx.drawImage(S.logo.img,0,10);if(Math.floor(G.frame/30)%2)drawCenter('PRESS ESC FOR MENU',320,2);drawCenter('HIGHSCORE '+G.hiscore,352,3);return;}
   if(G.state==='menu'||G.state==='start'||G.state==='options'||G.state==='help'||G.state==='hiscore'||G.state==='credits'){
     ctx.drawImage(S.title.img,0,0);drawMenus();return;}
+  if(G.state==='end'){drawEnd();return;}
   if(G.state==='fadeout')ctx.drawImage(G.fade.img,0,0);
   else if(G.state==='ready'){   // intro (0x416301): black playfield, HUD, "Get ready" and the three lines of the stage
     drawHUD();frame('getready',0,160,180);for(const [y,s,c] of DATA.intro[G.level])drawCenter(s,y,c);}
@@ -866,7 +902,6 @@ function render(){ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);
     ctx.fillStyle='rgba(20,10,6,.92)';ctx.fillRect(bx,by,bw,bh);ctx.strokeStyle='#8a6a3a';ctx.lineWidth=2;ctx.strokeRect(bx+.5,by+.5,bw-1,bh-1);
     drawCenter('SPIEL BEENDEN ?',by+22,0);
     text('JA',bx+95,by+68,G.quitSel?1:0,1);text('NEIN',bx+245,by+68,G.quitSel?0:2,1);}
-  else if(G.state==='end'){ctx.drawImage(S.endscreen.img,0,0);drawCenter('YOU FINISHED TAKATIS',400,0);drawCenter('SCORE '+G.score,430,2);}
   if(G.gamma<100){ctx.fillStyle='rgba(0,0,0,'+(1-G.gamma/100)+')';ctx.fillRect(0,0,W,H);}}
 
 // ---------- main loop
@@ -927,7 +962,7 @@ function step(){G.frame++;musicTick();if(G.state==='title'&&MUSIC.want!=='title'
       if(pressed.Enter||pressed.Space){if(G.quitSel){G.hiscore=Math.max(G.hiscore,G.score);try{localStorage.setItem('takatis.hiscore',G.hiscore);}catch(e){}G.state='menu';G.menuSel=0;musicPlay('title');}else G.state='play';}
       break;
     case 'gameover':G.timer--;if(G.timer<=0||pressed.Enter){G.hiscore=Math.max(G.hiscore,G.score);try{localStorage.setItem('takatis.hiscore',G.hiscore);}catch(e){}G.state='menu';G.menuSel=0;musicPlay('title');}break;
-    case 'end':G.timer--;if(G.timer<=0||pressed.Enter){G.hiscore=Math.max(G.hiscore,G.score);try{localStorage.setItem('takatis.hiscore',G.hiscore);}catch(e){}G.state='menu';G.menuSel=0;musicPlay('title');}break;
+    case 'end':endStep();break;
   }
   pressed={};}
 let acc=0,last=performance.now();
