@@ -214,7 +214,6 @@ function solidAt(sx,sy){const l=level();if(sy<0||sy>=PH)return true;const lx=Mat
 // strict overlap of a box with non-empty foreground tiles; nothing counts outside the 13 tile rows
 function boxInTiles(x,y,w,h){const l=level(),c0=Math.floor((x+G.scroll)/32),c1=Math.floor((x+w-1+G.scroll)/32),r0=Math.max(0,Math.floor(y/32)),r1=Math.min(12,Math.floor((y+h-1)/32));
   for(let r=r0;r<=r1;r++)for(let c=Math.max(0,c0);c<=Math.min(l.wb-1,c1);c++)if(l.B[r*l.wb+c])return true;return false;}
-function boxSolid(x,y,w,h){for(let yy=y;yy<=y+h;yy+=Math.min(16,h))for(let xx=x;xx<=x+w;xx+=Math.min(16,w))if(solidAt(xx,yy))return true;return solidAt(x+w,y+h);}
 function hit(a,b){return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;}
 
 // ---------- spawning
@@ -346,7 +345,7 @@ function updatePlayer(){
   else{const v=P.spd||3;if(u){P.bank=Math.min(10,P.bank+1);P.y=Math.max(1,P.y-v);}if(d){P.bank=Math.max(-10,P.bank-1);P.y=Math.min(382,P.y+v);}
     if(l)P.x=Math.max(0,P.x-v);if(r)P.x=Math.min(591,P.x+v);}
   // walls
-  if(boxSolid(P.x+8,P.y+9,P.w-16,P.h-18))killPlayer();
+  if(tileHit(shipShape()))killPlayer();   // walls kill on the first touching pixel, shield or not
   // weapons
   const fire=K.fire(),ctrl=K.beam(),L=P.latch;
   if(ctrl&&!fire)P.beam=Math.min(248,P.beam+2);else releaseBeam();   // releasing Ctrl or pressing fire lets the beam go
@@ -364,18 +363,39 @@ function updatePlayer(){
   if(P.cool>0)P.cool--;if(P.swcool>0)P.swcool--;if(P.shield>0)P.shield--;
 }
 function playerFrame(){const b=P.bank;return b===10?4:b>=5?3:b===-10?2:b<=-5?1:0;}
-function wallBox(x,y){return {x:Math.floor((x+G.scroll)/32)*32-G.scroll,y:Math.floor(y/32)*32,w:32,h:32};}
+// ---------- pixel collision (0x412f50): two shapes touch where both source pixels are not the colour key
+const MASKS=new Map();
+function maskOf(img){let m=MASKS.get(img);if(m)return m;const c=document.createElement('canvas');c.width=img.width;c.height=img.height;
+  const g=c.getContext('2d');g.drawImage(img,0,0);const d=g.getImageData(0,0,c.width,c.height).data,a=new Uint8Array(c.width*c.height);
+  for(let i=0;i<a.length;i++)a[i]=d[i*4+3]>127?1:0;m={w:c.width,a};MASKS.set(img,m);return m;}
+function shapeOf(sp,f,x,y){const s=S[sp];f=((f|0)%s.frames+s.frames)%s.frames;
+  return {img:s.img,sx:(f%s.cols)*s.fw,sy:Math.floor(f/s.cols)*s.fh,w:s.fw,h:s.fh,x:Math.round(x),y:Math.round(y)};}
+function pixHit(A,B){const x0=Math.max(A.x,B.x),y0=Math.max(A.y,B.y),x1=Math.min(A.x+A.w,B.x+B.w),y1=Math.min(A.y+A.h,B.y+B.h);if(x0>=x1||y0>=y1)return false;
+  const ma=maskOf(A.img),mb=maskOf(B.img);
+  for(let y=y0;y<y1;y++){const ra=(A.sy+y-A.y)*ma.w+A.sx-A.x,rb=(B.sy+y-B.y)*mb.w+B.sx-B.x;for(let x=x0;x<x1;x++)if(ma.a[ra+x]&&mb.a[rb+x])return true;}
+  return false;}
+// first foreground tile whose pixels touch the shape, as {x,y,w,h} in playfield coordinates
+function tileHit(A){const l=level(),ts=T[l.theme].tsa,ox=Math.floor(G.scroll);
+  const c0=Math.max(0,Math.floor((A.x+ox)/32)),c1=Math.min(l.wb-1,Math.floor((A.x+A.w-1+ox)/32)),r0=Math.max(0,Math.floor(A.y/32)),r1=Math.min(12,Math.floor((A.y+A.h-1)/32));
+  for(let r=r0;r<=r1;r++)for(let c=c0;c<=c1;c++){const t=l.B[r*l.wb+c];if(!t)continue;
+    const B={img:ts,sx:(t%10)*32,sy:Math.floor(t/10)*32,w:32,h:32,x:c*32-ox,y:r*32};if(pixHit(A,B))return B;}
+  return null;}
+const shipShape=()=>shapeOf('player',playerFrame(),P.x,P.y);
+const shotShape=s=>s.kind==='rocket'?shapeOf('rocket',s.fr,s.x,s.y):shapeOf(s.kind,s.fixed!==undefined?s.fixed:Math.floor(s.f/(s.anim?4:2)),s.x,s.y);
+const eshotShape=s=>shapeOf(s.spr,s.fixed!==undefined?s.fixed:Math.floor(s.f/4),s.x,s.y);
+const enemyShape=e=>e.spr?shapeOf(e.spr,e.f,e.x+(e.type===17?G.shake:0),e.y+(e.off||0)):null;
+function enemyTouch(A,e){const B=enemyShape(e);return B?pixHit(A,B):hit(A,e);}
 function updateShots(){
   for(const s of G.shots){s.f++;
     if(s.homing)rocketStep(s);
     s.x+=s.vx;if(s.laser){s.y0+=s.vy;laserStep(s);}else s.y+=s.vy;
-    if(s.bounce){let wp=null;for(const [px,py] of [[s.x+s.w/2,s.y],[s.x+s.w/2,s.y+s.h],[s.x,s.y+s.h/2],[s.x+s.w,s.y+s.h/2]])if(solidAt(px,py)){wp=[px,py];break;}
-      if(wp&&!bounceHit(s,wallBox(wp[0],wp[1]),true)){s.dead=true;sfx('hit',0.2);}}
-    else if(solidAt(s.x+s.w-2,s.y+s.h/2)){s.dead=true;sfx('hit',0.2);if(s.target)s.target.rtarget=false;
+    const wt=tileHit(shotShape(s));
+    if(s.bounce){if(wt&&!bounceHit(s,wt,true)){s.dead=true;sfx('hit',0.2);}}
+    else if(wt){s.dead=true;sfx('hit',0.2);if(s.target)s.target.rtarget=false;
       if(s.beam===4)G.fx.push({spr:'beamexplode',x:s.x+s.w-25,y:s.y+s.h/2-25,f:0,rate:3,n:5});else if(!s.beam)puff(s.x+s.w,s.y+s.h/2);}
     if(s.x>W+40||s.x<-60||s.y<-40||s.y>PH+40)s.dead=true;
     if(s.dead)continue;
-    for(const e of G.enemies){if(e.dead||e.trigger||!hit(s,e))continue;
+    for(const e of G.enemies){if(e.dead||e.trigger||!(s.homing?hit(s,e):enemyTouch(shotShape(s),e)))continue;   // rockets hit on the box
       if(e.type===23||e.type===22){puff(s.x+s.w,s.y+s.h/2);s.dead=true;break;} // force field eats shots
       damageEnemy(e,s.dmg,s.x+s.w,s.y+s.h/2);
       if(s.bounce){bounceHit(s,e,false);s.dead=true;}
@@ -385,12 +405,12 @@ function updateShots(){
   }
   G.shots=G.shots.filter(s=>!s.dead);
   // powerline: 13 segments, 15 px per frame, 8 damage on every frame of contact, not stopped by enemies
-  for(const L of G.lines){L.x+=15;L.t++;for(const sg of L.segs){if(!sg.alive)continue;if(solidAt(L.x+8,sg.y+16)){sg.alive=false;continue;}
-      for(const e of G.enemies){if(e.dead||e.trigger)continue;if(hit({x:L.x,y:sg.y,w:16,h:31},e))damageEnemy(e,8,L.x+8,sg.y+16);}}
+  for(const L of G.lines){L.x+=15;L.t++;for(const sg of L.segs){if(!sg.alive)continue;const ls=shapeOf('powerline',Math.floor(L.t/3),L.x,sg.y);if(tileHit(ls)){sg.alive=false;continue;}
+      for(const e of G.enemies){if(e.dead||e.trigger)continue;if(enemyTouch(ls,e))damageEnemy(e,8,L.x+8,sg.y+16);}}
     if(L.x>W||!L.segs.some(s=>s.alive))L.dead=true;}
   G.lines=G.lines.filter(l=>!l.dead);
   // enemy shots: the player box is the full 49x31 ship rectangle; the shield absorbs them
-  for(const s of G.eshots){s.x+=s.vx-(G.speed-1);s.y+=s.vy;if(s.grav&&s.f%16===15)s.vy+=1;s.f++;if(s.x<-20||s.x>W+20||s.y<-20||s.y>PH+20||(!s.ghost&&solidAt(s.x+s.w/2,s.y+s.h/2)))s.dead=true;
+  for(const s of G.eshots){s.x+=s.vx-(G.speed-1);s.y+=s.vy;if(s.grav&&s.f%16===15)s.vy+=1;s.f++;if(s.x<-20||s.x>W+20||s.y<-20||s.y>PH+20||tileHit(eshotShape(s)))s.dead=true;
     if(!s.dead&&!P.dead&&hit(s,{x:P.x,y:P.y,w:49,h:31})){s.dead=true;if(P.shield<=0)hurtPlayer(1);}}
   G.eshots=G.eshots.filter(s=>!s.dead);
 }
@@ -428,8 +448,7 @@ function updateEnemies(){const l=level();
     if(e.type!==13&&e.type!==26&&e.type!==27&&boxInTiles(e.x,e.y,e.w,e.h)){explode(cx,cy,e.w>=48);e.dead=true;continue;}
     if(e.x<-e.w||e.y<-300-PY||e.y>780-PY)e.dead=true;   // off the left edge or far above/below (0x40b5f0)
     if(e.dead||P.dead)continue;
-    const eb={x:e.x,y:e.y+(e.off||0),w:e.w,h:e.h};const pb={x:P.x+10,y:P.y+8,w:P.w-20,h:P.h-16};
-    if(hit(eb,pb)){
+    if(enemyTouch(shipShape(),e)){   // ship against enemy: pixel test (0x40bc2a)
       if(e.type===16){e.x=P.x+30;e.y=P.y;e.att=true;continue;}   // the magnet sticks to the ship (0x40bc3f)
       // ramming (0x40bb61): costs 2 energy and removes the enemy; with the shield only 26/27/39 still kill.
       // Enemies overlapping the left screen edge kill outright without the shield.

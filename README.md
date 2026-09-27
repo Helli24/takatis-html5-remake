@@ -121,8 +121,10 @@ Adressen beziehen sich auf `extracted/Takatis.exe`.
   16 der Magnet (Pfad 18, verfolgt das Schiff, haftet daran und bremst es auf 1 px/Frame). Faller (17) fallen nach
   30 Frames Wackeln mit 6 px/Frame. Pfad-Zähler −2 bedeutet Verfolgung mit 2 px/Frame. Gegnerschüsse driften mit
   (Tempo−1) nach links. Jeder Gegner außer 13, 26, 27 zerschellt, wenn sein Rechteck eine Vordergrundkachel überlappt.
-* Es gibt **keine** kachelbasierte Kollision. Die Level-Arrays werden nur von der
-  Zeichenfunktion `0x42bdb0` gelesen, das Original prüft Pixel auf der DirectDraw-Surface.
+* **Kollision** (`0x412f50`): pixelgenau. Zwei Formen berühren sich, wo beide Quellpixel nicht die Farbe
+  0x07E0 (Grün) haben. So prüft das Original Schiff gegen Wände und Gegner, Schüsse und Powerline gegen Wände
+  und Gegner (Raketen nur über das Rechteck). Gegnerschüsse und Items treffen das Schiff über das Rechteck 49×31,
+  Gegner zerschellen an Kacheln über ihr Rechteck. Das Remake baut dafür Masken aus Sprites und Tilesets.
 
 ## Stand des Remakes
 
