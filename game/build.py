@@ -56,7 +56,7 @@ SPRITES = {
     'debris1': ('debris1', 16, 16), 'debris2': ('debris2', 16, 16), 'debris3': ('Debris3', 16, 16),
     'bullet': ('turret-bullet', 8, 8), 'walkershot': ('walkershot', 24, 24), 'bullspread': ('bullspread', 18, 13), 'chaseshot': ('chaseshot', 32, 14),
     'elevatorshot': ('elevatorshot', 32, 8), 'volcanoball': ('volcanoball', 16, 16), 'mine': ('mine', 24, 24), 'spike1': ('spike1', 16, 17), 'spike2': ('spike2', 16, 17),
-    'shield': ('shield', 64, 34), 'powerups': ('powerups', 20, 20), 'star': ('star', 72, 72), 'blob': ('blob1', 12, 12),
+    'shield': ('shield', 56, 34), 'powerups': ('powerups', 20, 20), 'star': ('star', 72, 72), 'blob': ('blob1', 12, 12),
     'pu_oneup': ('pu_oneup', 20, 20), 'pu_bounce': ('pu_bounce', 20, 20), 'pu_shield': ('pu_shield', 20, 20), 'pu_line': ('pu_line', 20, 20),
     'pu_spread': ('pu_spread', 20, 20), 'pu_laser': ('pu_laser', 20, 20), 'pu_rocket': ('pu_rocket', 20, 20),
     'hudtop': ('hud-oben', 640, 16), 'hudbottom': ('hud-unten', 640, 48), 'energy': ('player-energy', 56, 9),

@@ -78,7 +78,33 @@ Adressen beziehen sich auf `extracted/Takatis.exe`.
   `0x4948bc`, der Schaden steht im Schuss-Feld `+0x5c`.
 * Schadenswerte: Spread 3 bei 1/3/5/7 Schüssen je Stufe, Laser 5/4/3/3 bei zwei Schüssen,
   Bounce 4 groß und 3 klein, Powerline 8, Rakete 100, Beam 10/15/20/25.
-  Alle Gegnerschüsse machen 10.
+  Gegnerschüsse tragen den Wert 10 im Schadensfeld, beim Spieler ziehen sie aber pauschal 1 Energie ab (siehe unten).
+* **Bildrate** (`0x418102`): `Flip` mit `DDFLIP_WAIT`, danach Warten bis mindestens 10 ms seit Framebeginn
+  (`GetTickCount`, Wert bei `0x485698`). Das Spiel läuft also mit der Bildwiederholrate, höchstens etwa 100 fps.
+  Die FAQ empfiehlt 75 Hz, das Remake läuft deshalb fest mit 75 fps. Alle Frame-Angaben hier beziehen sich darauf.
+* **Schiff** (`0x41ced0`): 3 px pro Frame, x 0..591, y 17..398 (Bildschirm). Gegensätzliche Tasten heben die
+  Bewegung ganz auf. Neigungszähler −10..10, Frame 0 neutral, 1/2 sinken, 3/4 steigen.
+* **Energie** 3. Gegnerschuss −1, Rammen −2, Tod erst unter 0, also beim vierten Schusstreffer. Keine
+  Unverwundbarkeit nach Treffer oder Respawn. Gerammte Gegner werden entfernt und geben einfache Punkte.
+  Wände töten sofort, auch mit Schild. Trefferbox für Gegnerschüsse und Items ist das volle Rechteck 49×31.
+* **Schild** 1000 Frames, ab 500 blinkt er jedes 2., ab 750 jedes 4. Frame. Er schluckt Schüsse und zerstört
+  gerammte Gegner, nur die Typen 26, 27 und 39 töten trotzdem.
+* **Tod** (`0x41c820`): 400 Frames Explosionssequenz, dann Leben −1, Raketen −1, Powerlines −1. Game over bei 0
+  Leben. Neustart am Levelanfang oder, wenn schon überschritten, bei der Levelhälfte. Das Scrolling läuft weiter.
+* **Start** (`0x420bf4`): Spread 1, Laser 0, Bounce 0, 5 Raketen, 3 Powerlines. Leben 5/4/3 je nach
+  Schwierigkeit. Stage geschafft: +1 Leben, keine Punkte. Endgegner: +10000.
+* **Waffen**: Spread und Bounce feuern einmal pro Tastendruck ohne Abklingzeit, der Laser feuert Dauerfeuer alle
+  24/18/12/6 Frames. Tasten 1 Spread, 2 Bounce, 3 Laser, Num 0 schaltet weiter. Der Beam lädt 2 pro Frame bis 248,
+  die Stufen liegen bei >40, >110, >180 und =248. Rakete: Ziel ist der erste passende Gegner der Liste, Lenkung
+  pro Achse 6 px oder 1 px pro Frame. Powerline: 13 Segmente über die ganze Höhe, 15 px pro Frame, 8 Schaden in
+  jedem Frame mit Kontakt. Die Laser-Sinuskurve (`0x40fea0`) ist exakt in float32 nachgebaut.
+* **Punkte**: Abschuss per Waffe zählt die Punkte des Gegners fünfmal (die Addition steht in der
+  Explosionsschleife `0x41f250`), Rammen einmal. Items: Waffe +1000, Rakete +100, Powerline +200, Schild +500,
+  1UP +2500. Zufallsdrops bei `rand()%3500`: ≤20 Schild, ≤100 Rakete, ≤140 Powerline.
+* **Sound-IDs** (Ladefunktion bei `0x414a00`): 0 Explosion, 1 Spread, 2 Beam, 3 Hit, 5 Rocket, 6 Laser, 7 Bounce,
+  0x11 Shield, 0x12 BigExplosion, 0x13 Powerline, 0x15 Morph, 0x16 Laser2, 0x17 Bigshot, 0x18 Trigger,
+  0x19 Klippikloppi, Sprache 9 online, 0xa bounce, 0xb spread, 0xc laser, 0xd homing, 0xe line, 0xf shield,
+  0x10 1up, 0x14 bigone.
 * Es gibt **keine** kachelbasierte Kollision. Die Level-Arrays werden nur von der
   Zeichenfunktion `0x42bdb0` gelesen, das Original prüft Pixel auf der DirectDraw-Surface.
 

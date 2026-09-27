@@ -13,7 +13,7 @@
 <div id="wrap"><canvas id="c" width="640" height="480" tabindex="0"></canvas><div id="msg">LOADING…</div></div>
 <div class="bar">
   <span><kbd>←↑↓→</kbd> fliegen</span><span><kbd>Space</kbd> Primärwaffe</span><span><kbd>Strg</kbd> Beam laden</span><span><kbd>Shift</kbd> Rakete</span><span><kbd>Enter</kbd> Powerline</span>
-  <span><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> Spread/Laser/Bounce</span><span><kbd>P</kbd> Pause</span><span><kbd>F1</kbd> Infomodus</span><span><kbd>F2</kbd> Stage überspringen</span><span><kbd>M</kbd> Sound</span><span><kbd>-</kbd><kbd>+</kbd> Musik</span>
+  <span><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> Spread/Bounce/Laser</span><span><kbd>P</kbd> Pause</span><span><kbd>F1</kbd> Infomodus</span><span><kbd>F2</kbd> Stage überspringen</span><span><kbd>M</kbd> Sound</span><span><kbd>-</kbd><kbd>+</kbd> Musik</span>
 </div>
 <script>var __wasmBytes=(function(){const b=atob('/*WASM_B64*/'),a=new Uint8Array(b.length);for(let i=0;i<b.length;i++)a[i]=b.charCodeAt(i);return a.buffer;})();var libopenmpt={wasmBinary:__wasmBytes,instantiateWasm:function(info,receive){WebAssembly.instantiate(__wasmBytes,info).then(function(r){window.__wasmInst=r.instance;window.__wasmInfo=info;receive(r.instance,r.module);}).catch(function(e){console.error('libopenmpt wasm',e);});return {};},onRuntimeInitialized:function(){window.__mptReady=true;}};</script>
 <script>/*LIBOPENMPT*/</script>
@@ -21,7 +21,7 @@
 const DATA = /*DATA*/;
 (function(){
 'use strict';
-const W=640,H=480,PY=16,PH=416,FPS=60;
+const W=640,H=480,PY=16,PH=416,FPS=75;
 const cv=document.getElementById('c'),ctx=cv.getContext('2d');ctx.imageSmoothingEnabled=false;
 const msg=document.getElementById('msg');
 function fit(){const s=Math.max(1,Math.floor(Math.min((innerWidth-16)/W,(innerHeight-60)/H)));cv.style.width=W*s+'px';cv.style.height=H*s+'px';}
@@ -112,7 +112,7 @@ function bossStart(){if(!glInit()){G.stageClear=true;return;}const id=level().th
   G.speed=0;musicPlay('boss');sfx('v_bigone',0.9);}
 function bossUpdate(){const B=G.boss;B.t++;if(B.flash>0)B.flash--;const d=G.diff;
   if(B.dying){B.dying--;if(B.dying%6===0){explode(B.x-B.w/2+Math.random()*B.w,B.y-B.h/2+Math.random()*B.h,Math.random()<0.5);sfx('explosion',0.5,0.8+Math.random()*.4);}
-    B.parts.forEach((pp,i)=>{pp.rz+=0.02*(i+1);pp.oy+=0.5;});if(B.dying===0){G.score+=5000;G.boss=null;G.bossDone=true;G.stageClear=true;}return;}
+    B.parts.forEach((pp,i)=>{pp.rz+=0.02*(i+1);pp.oy+=0.5;});if(B.dying===0){G.score+=10000;G.boss=null;G.bossDone=true;G.stageClear=true;}return;}
   // entrance, then hovering pattern
   const tx=W-B.w/2-30;if(B.x>tx)B.x-=2;else B.x=tx+Math.sin(B.t*0.012)*25;
   B.y=PH/2+Math.sin(B.t*0.02)*(PH/2-B.h/2-20);
@@ -184,7 +184,9 @@ function animFrame(e){const a=ANIM[e.type];if(!a)return Math.floor(e.t/6);return
 window.G=window.G||{};const G={state:'menu',level:0,scroll:0,speed:1,maxScroll:0,next:0,lives:5,score:0,diff:0,info:false,t:0,frame:0,
   enemies:[],shots:[],eshots:[],fx:[],items:[],lines:[],timer:0,music:null,stageClear:false,hiscore:0,menuSel:0,startRow:0,slotSel:0,optSel:0,page:0,creditY:0,slot:null,sfxVol:1};
 let P;window.__dbg=()=>({G,P,MUSIC});window.__tick=(n)=>{for(let i=0;i<n;i++)step();render();};window.__startBoss=(id)=>{G.lives=5;G.score=0;P=null;startLevel(2*id-1);G.state='play';G.scroll=G.maxScroll-1;};
-function newPlayer(){return {x:10,y:200,w:49,h:34,energy:3,inv:120,dead:0,bank:0,cool:0,weapon:0,lvl:[1,0,0],rockets:5,lines:2,shield:0,beam:0,beamOn:false,blink:0,laserPhase:0};}
+// player values from Takatis.exe: new game 0x420bf4, level (re)start 0x426710, update 0x41ced0
+function newPlayer(){return {x:10,y:184,w:49,h:34,energy:3,dead:0,bank:0,cool:0,swcool:0,weapon:0,lvl:[1,0,0],rockets:5,lines:3,shield:0,beam:0,latch:{}};}
+const START_LIVES=[5,4,3];   // per difficulty (0x4230a7)
 
 function level(){return LEVELS[G.level];}
 function startLevel(i,fromScroll=0){G.level=i;const l=level();G.scroll=fromScroll;G.speed=l.speed;G.maxScroll=l.wb*32-640;
@@ -245,98 +247,135 @@ function explode(x,y,big,player){
 function puff(x,y){G.fx.push({spr:'smallexpl',x:x-8,y:y-8,f:0,rate:3,n:6});}
 function sparks(x,y){for(let i=0;i<12;i++)G.fx.push({spr:'blob',x,y,vx:(Math.random()-.5)*6,vy:(Math.random()-.5)*6,f:0,rate:6,n:6});}
 
-// ---------- weapons
-function fireSpread(){const lv=P.lvl[0];   // 1/3/5/7 shots, integer velocities, 3 damage each
-  const V=[[[8,0]],[[8,0],[7,-1],[7,1]],[[8,0],[7,-1],[7,1],[6,-2],[6,2]],[[8,0],[7,-1],[7,1],[6,-2],[6,2],[5,-3],[5,3]]][lv-1];
-  const FR={0:0,'-1':1,1:2,'-2':3,2:4,'-3':5,3:6};
-  for(const v of V)G.shots.push({kind:'spread',x:P.x+42,y:P.y+9,w:18,h:17,vx:v[0],vy:v[1],dmg:3,f:0,fixed:FR[v[1]]});
-  sfx('spread',0.35);P.cool=11;}
-function fireLaser(){const lv=P.lvl[1];P.laserPhase+=0.35;const off=Math.sin(P.laserPhase)*10;
-  const dm=[5,4,3,3][lv-1];   // damage per stage from the original
-  G.shots.push({kind:'laser',x:P.x+40,y:P.y+8+off,w:24,h:12,vx:5,vy:0,dmg:dm,f:0,sine:1,ph:P.laserPhase});
-  G.shots.push({kind:'laser',x:P.x+40,y:P.y+8-off,w:24,h:12,vx:5,vy:0,dmg:dm,f:0,sine:1,ph:P.laserPhase+Math.PI});
-  sfx('laser',0.25,1+lv*.1);P.cool=[12,9,6,4][lv-1];}
-function fireBounce(){const lv=P.lvl[2];G.shots.push({kind:'bounce1',x:P.x+40,y:P.y+5,w:24,h:24,vx:9,vy:0,dmg:4,f:0,bounce:true,size:1,bounces:0});
-  if(lv>=4){G.shots.push({kind:'bounce3',x:P.x+40,y:P.y+5,w:12,h:12,vx:8,vy:-3,dmg:3,f:0,bounce:true,size:3,bounces:0});G.shots.push({kind:'bounce3',x:P.x+40,y:P.y+15,w:12,h:12,vx:8,vy:3,dmg:3,f:0,bounce:true,size:3,bounces:0});}
-  sfx('bounce',0.4);P.cool=16;}
-function fireRocket(){if(P.rockets<=0)return;P.rockets--;G.shots.push({kind:'rocket',x:P.x+20,y:P.y+20,w:16,h:16,vx:5,vy:0,dmg:100,f:0,homing:true,target:null});sfx('rocket',0.5);}
-function fireLine(){if(P.lines<=0)return;P.lines--;const cy=P.y+17;const segs=[];for(let i=-7;i<=7;i++)segs.push({y:cy-16+i*32,alive:true});G.lines.push({x:P.x+30,segs,t:0});sfx('powerline',0.6);}
-function releaseBeam(){const lv=P.beam>=100?4:P.beam>=66?3:P.beam>=33?2:P.beam>=10?1:0;P.beam=0;if(!lv)return;
-  const spr=['beammini','beamsmall','beammed','beambig'][lv-1];const s=S[spr];
-  G.shots.push({kind:spr,x:P.x+45,y:P.y+17-s.fh/2,w:s.fw,h:s.fh,vx:8,vy:0,dmg:[10,15,20,25][lv-1],f:0,pierce:lv===4,beam:true,anim:true});sfx('beam',0.5,0.8+lv*.1);}
-function splitBounce(s){if(s.size===1&&P.lvl[2]>=2){for(const d of [-1,1])G.shots.push({kind:'bounce2',x:s.x+3,y:s.y+3,w:18,h:18,vx:4*d,vy:-3*d,dmg:4,f:0,bounce:true,size:2,bounces:0});}
-  else if(s.size===2&&P.lvl[2]>=3){for(const d of [-1,1])G.shots.push({kind:'bounce3',x:s.x+3,y:s.y+3,w:12,h:12,vx:3.5*d,vy:3.5*d,dmg:3,f:0,bounce:true,size:3,bounces:0});}}
+// ---------- weapons (player update 0x41ced0, shot constructor 0x40f3d0, shot update 0x40fe10)
+// every value below is read from Takatis.exe; frame counts assume the original 75 fps
+const LASER_CD=[24,18,12,6],LASER_DMG=[5,4,3,3];
+function shot(kind,x,y,w,h,vx,vy,dmg,o){const s={kind,x,y,w,h,vx,vy,dmg,f:0};if(o)Object.assign(s,o);G.shots.push(s);return s;}
+function fireSpread(){const lv=P.lvl[0],sp=(dx,vx,vy,fr)=>shot('spread',P.x+dx,P.y+20,18,17,vx,vy,3,{fixed:fr});
+  sp(35,8,0,0);
+  if(lv>=2){const dx=lv===4?47:45;sp(dx,7,-1,1);sp(dx,7,1,2);}
+  if(lv>=3){sp(50,6,-2,3);sp(50,6,2,4);}
+  if(lv>=4){sp(53,5,-3,5);sp(53,5,3,6);}
+  sfx('spread',0.35);P.cool=20;}
+function fireLaser(){const lv=P.lvl[1];   // two shots, each on its own half of the sine wave
+  for(const v of [0,1])shot('laser',P.x+38,P.y+21,24,12,5,0,LASER_DMG[lv-1],{laser:{v,off:0,dir:0,f:0},y0:P.y+21});
+  sfx('laser',0.25,1+lv*.1);P.cool=LASER_CD[lv-1];}
+const F32=Math.fround,F02=Math.fround(0.2);
+function laserStep(s){const L=s.laser,sg=L.v?-1:1;   // float32 arithmetic and truncation exactly as in the original
+  if(L.off*sg>=30){L.dir=0;L.f=-L.f;}if(L.off*sg<=0){L.dir=1;L.f=1;}
+  L.off+=(L.dir?2:-2)*sg;L.f=F32(L.f-F02);L.off+=Math.trunc(L.f)*sg;s.y=s.y0+L.off;}
+function fireBounce(){const lv=P.lvl[2];
+  shot('bounce1',P.x+40,P.y+17,24,24,9,0,4,{bounce:1});
+  if(lv===4){shot('bounce3',P.x+40,P.y+17,12,12,8,-3,3,{bounce:3});shot('bounce3',P.x+40,P.y+17,12,12,8,3,3,{bounce:3});}
+  sfx('bounce',0.4);P.cool=lv<4?30:20;}
+function fireRocket(){P.rockets--;shot('rocket',P.x+30,P.y+20,16,16,6,0,100,{homing:true,target:null,fr:2});sfx('rocket',0.5);}
+function fireLine(){P.lines--;const segs=[];for(let y=0;y<=384;y+=32)segs.push({y,alive:true});   // 13 segments over the whole screen height
+  G.lines.push({x:P.x+50,segs,t:0});sfx('powerline',0.6);}
+function releaseBeam(){const c=P.beam;P.beam=0;   // charge 0..248; exactly 110 and 180 fire nothing, as in the original
+  const lv=c>40&&c<110?1:c>110&&c<180?2:c>180&&c<248?3:c===248?4:0;if(!lv)return;
+  const B=[[34,25,16,8,10],[35,20,32,16,15],[35,16,48,24,20],[35,11,64,32,25]][lv-1];
+  shot(['beammini','beamsmall','beammed','beambig'][lv-1],P.x+B[0],P.y+B[1],B[2],B[3],8,0,B[4],{beam:lv,anim:true});sfx('beam',0.5,0.8+lv*.1);}
+// bounce balls: 1 = big (24px), 2 = medium (18px), 3 = small (12px). b = the tile or enemy box that was hit.
+// Returns true when the ball survives.
+function bounceHit(s,b,wall){const lv=P.lvl[2];
+  if(s.bounce===1){if(lv!==1)for(const vy of [9,-9])shot('bounce2',s.x-9,s.y,18,18,-9,vy,5,{bounce:2});return false;}
+  if(s.bounce===2&&lv!==2){   // medium splits into two small balls, direction from the face that was hit
+    if(s.vx<0){const right=b.x+b.w-s.x;let q;
+      if(s.vy<0)q=b.y+b.h-s.y<=right?[[0,9,-9,9],[0,9,9,9]]:[[9,0,9,-9],[9,0,9,9]];
+      else if(s.vy>0)q=s.h-(b.y-s.y)<=right?[[0,-9,-9,-9],[0,-9,9,-9]]:[[9,0,9,-9],[9,0,9,9]];
+      if(q)for(const [dx,dy,vx,vy] of q)shot('bounce3',s.x+dx,s.y+dy,12,12,vx,vy,5,{bounce:3});}
+    return false;}
+  if(!wall)return false;   // small balls (and medium ones at stage 2) die on enemies but reflect off walls
+  let n=0,fa=false,fb=false;const right=b.x+b.w-1-s.x,left=s.w-(b.x-s.x),below=b.y+b.h-1-s.y,above=s.h-(b.y-s.y);
+  if(s.vx<0&&s.vy<0){if(below<=right){s.vy=-s.vy;s.y+=11;fa=true;}else{s.vx=-s.vx;s.x+=11;}n++;}
+  if(s.vx<0&&s.vy>0&&!fa){if(above<=right){s.vy=-s.vy;s.y-=11;}else{s.vx=-s.vx;s.x+=11;}n++;}
+  if(s.vx>0&&s.vy<0){if(b.y+b.h-s.y<=left){s.vy=-s.vy;s.y+=11;fb=true;}else{s.vx=-s.vx;s.x-=11;}n++;}
+  if(s.vx>0&&s.vy>0&&!fb){if(above<=left){s.vy=-s.vy;s.y-=11;}else{s.vx=-s.vx;s.x-=11;}n++;}
+  return n<2;}
+const ROCKET_FR=(vx,vy)=>vy<0?(vx>0?1:vx<0?7:0):vy>0?(vx>0?3:vx<0?5:4):(vx>0?2:vx<0?6:-1);
+function rocketTarget(s){const ok=e=>!e.dead&&!e.trigger&&e.type!==0&&e.type!==39&&!(e.type>=18&&e.type<=21);
+  s.vx=6;s.vy=0;s.target=G.enemies.find(e=>ok(e)&&!e.rtarget)||G.enemies.find(ok)||null;if(s.target)s.target.rtarget=true;}
+function rocketStep(s){if(s.target&&s.target.dead)s.target=null;if(!s.target)rocketTarget(s);
+  if(s.target){const ax=d=>d>=6?6:d>0?1:d<=-6?-6:d<0?-1:0;s.vx=ax(s.target.x-s.x);s.vy=ax(s.target.y+(s.target.off||0)-s.y);}
+  const fr=ROCKET_FR(s.vx,s.vy);if(fr>=0)s.fr=fr;}
 
-// ---------- pickups
-function pickup(kind,stage,shot){sfx('klippikloppi',0.5);
-  if(kind==='spread'||kind==='laser'||kind==='bounce'){const i=ITEMS.indexOf(kind);const target=stage||Math.min(4,P.lvl[i]+1);if(P.lvl[i]<target)P.lvl[i]=target;else G.score+=500;P.weapon=i;sfx('v_'+kind,0.8);}
-  else if(kind==='rocket'){P.rockets=Math.min(16,P.rockets+(shot?4:1));sfx('v_homing',0.8);}   // stealing gives one, shooting the container gives more
-  else if(kind==='line'){P.lines=Math.min(16,P.lines+(shot?2:1));sfx('v_line',0.8);}
-  else if(kind==='shield'){P.shield=720;sfx('v_shield',0.8);sfx('shield',0.5);}
-  else if(kind==='oneup'){G.lives++;sfx('v_oneup',0.8);}}
+// ---------- pickups (0x41eace): no weapon switch, fixed points per item
+function pickup(kind){
+  if(kind==='spread'||kind==='laser'||kind==='bounce'){const i=ITEMS.indexOf(kind);if(P.lvl[i]<4)P.lvl[i]++;G.score+=1000;sfx('v_'+kind,0.8);}
+  else if(kind==='rocket'){if(P.rockets<16)P.rockets++;G.score+=100;sfx('v_homing',0.8);}
+  else if(kind==='line'){if(P.lines<16)P.lines++;G.score+=200;sfx('v_line',0.8);}
+  else if(kind==='shield'){if(P.shield<=0)sfx('shield',0.5);P.shield=1000;G.score+=500;sfx('v_shield',0.8);}
+  else if(kind==='oneup'){G.lives++;G.score+=2500;sfx('v_oneup',0.8);}}
 
-// ---------- damage
-function hurtPlayer(amount,wall){if(P.dead||G.state!=='play')return;if(wall){killPlayer();return;}
-  if(P.inv>0||P.shield>0)return;P.energy-=amount;sfx('hit',0.5);P.inv=60;if(P.energy<=0)killPlayer();}
-function killPlayer(){if(P.dead)return;P.dead=90;explode(P.x+24,P.y+17,true,true);for(let i=0;i<3;i++)G.fx.push({spr:'debris'+(1+i),x:P.x+16+i*8,y:P.y+8,vx:(Math.random()-.5)*4,vy:-2-Math.random()*3,f:0,rate:6,n:16,grav:true,life:70});}
-function enemyDie(e){G.score+=e.score;explode(e.x+e.w/2,e.y+e.h/2,e.w>=48);if(e.item)G.items.push({kind:e.item,x:e.x+8,y:e.y+10,w:20,h:20,static:false,t:0,stage:e.stage,shot:true});
-  if(!e.item&&e.type!==9&&Math.random()<0.08)G.items.push({kind:ITEMS[3+Math.floor(Math.random()*3)],x:e.x,y:e.y,w:20,h:20,static:false,t:0});}
-function damageEnemy(e,dmg,sx,sy){if(e.trigger)return false;if(e.hp>=1e9){puff(sx,sy);return true;}e.hp-=dmg;e.flash=4;if(e.hp<=0){enemyDie(e);e.dead=true;}else puff(sx,sy);return true;}
+// ---------- damage: 3 energy, death below 0; enemy shot -1, ramming -2; no invulnerability frames
+function hurtPlayer(amount){if(P.dead||G.state!=='play')return;P.energy-=amount;if(P.energy<0)killPlayer();else sfx('hit',0.5);}
+function killPlayer(){if(P.dead)return;P.dead=400;explode(P.x+24,P.y+17,true,true);for(let i=0;i<3;i++)G.fx.push({spr:'debris'+(1+i),x:P.x+16+i*8,y:P.y+8,vx:(Math.random()-.5)*4,vy:-2-Math.random()*3,f:0,rate:6,n:16,grav:true,life:70});}
+function enemyDie(e,byShot){G.score+=e.score*(byShot?5:1);   // shot kills add the points once per explosion step (5x)
+  explode(e.x+e.w/2,e.y+e.h/2,e.w>=48);if(e.item)G.items.push({kind:e.item,x:e.x+8,y:e.y+10,w:20,h:20,t:0});
+  if(byShot&&!e.item&&e.type!==9&&!(e.type>=18&&e.type<=21)){const r=Math.floor(Math.random()*3500);
+    const k=r<=20?'shield':r<=100?'rocket':r<=140?'line':null;if(k)G.items.push({kind:k,x:e.x,y:e.y,w:20,h:20,t:0});}}
+function damageEnemy(e,dmg,sx,sy){if(e.trigger)return false;if(e.hp>=1e9){puff(sx,sy);sfx('hit',0.3);return true;}e.hp-=dmg;e.flash=4;if(e.hp<=0){enemyDie(e,true);e.dead=true;}else{puff(sx,sy);sfx('hit',0.3);}return true;}
 
 // ---------- update
 function updatePlayer(){
-  if(P.dead){P.dead--;if(P.dead===0){G.lives--;if(G.lives<0){G.state='gameover';G.timer=240;sfx('v_bigone',0.8);musicPlay('highscore');}else{const half=Math.floor(G.maxScroll/2/32)*32;startLevel(G.level,G.scroll>half?half:0);}}return;}
-  const sp=3.5;let dy=0;if(K.up()){P.y-=sp;dy=-1;}if(K.down()){P.y+=sp;dy=1;}if(K.left())P.x-=sp;if(K.right())P.x+=sp;
-  P.bank+=(dy*2-P.bank)*0.2;P.x=Math.max(0,Math.min(591,P.x));P.y=Math.max(1,Math.min(382,P.y));
-  if(P.inv>0)P.inv--;if(P.shield>0)P.shield--;if(P.cool>0)P.cool--;
+  if(P.dead){P.dead--;
+    if(P.dead>100)for(let i=0;i<5;i++)if(Math.random()*10<1){G.fx.push({spr:'explosion',x:P.x+Math.floor(Math.random()*21)-10-6,y:P.y+Math.floor(Math.random()*51)-25-8,f:0,rate:4,n:8});if(P.dead%8===0)sfx('explosion',0.4);}
+    if(P.dead===0){G.lives--;if(P.rockets>0)P.rockets--;if(P.lines>0)P.lines--;
+      if(G.lives<=0){G.state='gameover';G.timer=240;sfx('v_bigone',0.8);musicPlay('highscore');}
+      else{const half=level().wb*16;startLevel(G.level,G.scroll>half?half:0);}}
+    return;}
+  const u=K.up(),d=K.down(),l=K.left(),r=K.right();
+  if(!u&&!d)P.bank-=Math.sign(P.bank);
+  if((u&&d)||(l&&r))P.bank-=Math.sign(P.bank);   // opposite keys cancel all movement
+  else{if(u){P.bank=Math.min(10,P.bank+1);P.y=Math.max(1,P.y-3);}if(d){P.bank=Math.max(-10,P.bank-1);P.y=Math.min(382,P.y+3);}
+    if(l)P.x=Math.max(0,P.x-3);if(r)P.x=Math.min(591,P.x+3);}
   // walls
-  if(boxSolid(P.x+8,P.y+9,P.w-16,P.h-18))hurtPlayer(0,true);
+  if(boxSolid(P.x+8,P.y+9,P.w-16,P.h-18))killPlayer();
   // weapons
-  // Laser is the only weapon with autofire (manual: "als einziger Schuss ... Dauerfeuer"); Spread and Bounce need a key press per shot
-  const tap=pressed.Space;const held=K.fire();
-  if(P.cool===0){let fired=false;
-    if(P.weapon===1&&P.lvl[1]){if(held){fireLaser();fired=true;}}
-    else if(P.weapon===2&&P.lvl[2]){if(tap){fireBounce();fired=true;}}
-    else if(tap){fireSpread();fired=true;}
-    if(fired&&P.beam>0)releaseBeam();}
-  if(K.beam()){if(!held)P.beam=Math.min(100,P.beam+1.2);P.beamOn=true;}else if(P.beamOn){P.beamOn=false;releaseBeam();}
-  if(pressed.ShiftLeft||pressed.ShiftRight)fireRocket();if(pressed.Enter||pressed.NumpadEnter)fireLine();
-  if(pressed.Digit1)P.weapon=0;if(pressed.Digit2&&P.lvl[1])P.weapon=1;if(pressed.Digit3&&P.lvl[2])P.weapon=2;
-  if(pressed.Numpad0||pressed.KeyQ){for(let i=1;i<=3;i++){const w=(P.weapon+i)%3;if(P.lvl[w]){P.weapon=w;break;}}}
+  const fire=K.fire(),ctrl=K.beam(),L=P.latch;
+  if(ctrl&&!fire)P.beam=Math.min(248,P.beam+2);else releaseBeam();   // releasing Ctrl or pressing fire lets the beam go
+  if(!fire){L.fire=false;L.bounce=false;}
+  if(fire&&P.weapon===0&&!L.fire){L.fire=true;fireSpread();}                     // spread: one shot per key press, no cooldown
+  if(fire&&P.weapon===1&&P.lvl[1]>0&&P.cool===0)fireLaser();                     // laser: the only autofire weapon
+  if(fire&&P.weapon===2&&P.lvl[2]>0&&!L.bounce){L.bounce=true;fireBounce();}     // bounce: one ball per key press
+  const ent=keys.Enter||keys.NumpadEnter,sh=keys.ShiftLeft||keys.ShiftRight;
+  if(ent&&P.lines>0&&!L.line)fireLine();L.line=ent;
+  if(sh&&P.rockets>0&&!L.rocket)fireRocket();L.rocket=sh;
+  // weapon select: 1 spread, 2 bounce, 3 laser, numpad 0 cycles; the voice repeats at most every 50 frames
+  const sel=(w,v)=>{P.weapon=w;if(P.swcool===0){sfx('v_'+v,0.8);P.swcool=50;}};
+  if(keys.Digit1)sel(0,'spread');if(keys.Digit3)sel(1,'laser');if(keys.Digit2)sel(2,'bounce');
+  if((keys.Numpad0||keys.KeyQ)&&P.swcool===0){if(P.weapon===0)sel(2,'bounce');else if(P.weapon===1)sel(0,'spread');else sel(1,'laser');}
+  if(P.cool>0)P.cool--;if(P.swcool>0)P.swcool--;if(P.shield>0)P.shield--;
 }
+function playerFrame(){const b=P.bank;return b===10?4:b>=5?3:b===-10?2:b<=-5?1:0;}
+function wallBox(x,y){return {x:Math.floor((x+G.scroll)/32)*32-G.scroll,y:Math.floor(y/32)*32,w:32,h:32};}
 function updateShots(){
   for(const s of G.shots){s.f++;
-    if(s.homing){if(!s.target||s.target.dead||s.target.trigger||s.target.x<-50){s.target=null;const c=G.enemies.filter(e=>!e.trigger&&!e.dead&&e.hp<1e9&&e.x>-20&&e.x<W&&e.y>-50&&e.y<PH);if(c.length)s.target=c[Math.floor(Math.random()*c.length)];}
-      if(s.target){const ang=Math.atan2(s.target.y+s.target.h/2-s.y-8,s.target.x+s.target.w/2-s.x-8);const cur=Math.atan2(s.vy,s.vx);let d=ang-cur;while(d>Math.PI)d-=2*Math.PI;while(d<-Math.PI)d+=2*Math.PI;const na=cur+Math.max(-0.08,Math.min(0.08,d));s.vx=Math.cos(na)*5.5;s.vy=Math.sin(na)*5.5;}
-}
-    if(s.sine){s.ph+=0.35;s.y+=Math.cos(s.ph)*3.5;}
-    s.x+=s.vx;s.y+=s.vy;
-    if(s.bounce){const wallV=solidAt(s.x+s.w/2,s.y-1)||solidAt(s.x+s.w/2,s.y+s.h+1)||s.y<0||s.y+s.h>PH;const wallH=solidAt(s.x-1,s.y+s.h/2)||solidAt(s.x+s.w+1,s.y+s.h/2);
-      if(wallV||wallH){
-        if(s.size===1){if(P.lvl[2]>=2)splitBounce(s);else puff(s.x+s.w/2,s.y+s.h/2);s.dead=true;}   // big ball never bounces
-        else if(s.size===2&&P.lvl[2]>=3){splitBounce(s);s.dead=true;}                              // medium splits again at stage 3+
-        else{if(wallV){s.vy=-s.vy;s.y+=s.vy*2;}if(wallH){s.vx=-s.vx;s.x+=s.vx*2;}s.bounces=(s.bounces||0)+1;}}
-      if(s.bounces>12)s.dead=true;}
-    else if(!s.beam&&solidAt(s.x+s.w-2,s.y+s.h/2)){puff(s.x+s.w,s.y+s.h/2);s.dead=true;}
-    else if(s.beam&&solidAt(s.x+s.w-2,s.y+s.h/2)){G.fx.push({spr:'beamexplode',x:s.x+s.w-25,y:s.y+s.h/2-25,f:0,rate:3,n:5});s.dead=true;}
+    if(s.homing)rocketStep(s);
+    s.x+=s.vx;if(s.laser){s.y0+=s.vy;laserStep(s);}else s.y+=s.vy;
+    if(s.bounce){let wp=null;for(const [px,py] of [[s.x+s.w/2,s.y],[s.x+s.w/2,s.y+s.h],[s.x,s.y+s.h/2],[s.x+s.w,s.y+s.h/2]])if(solidAt(px,py)){wp=[px,py];break;}
+      if(wp&&!bounceHit(s,wallBox(wp[0],wp[1]),true)){s.dead=true;sfx('hit',0.2);}}
+    else if(solidAt(s.x+s.w-2,s.y+s.h/2)){s.dead=true;sfx('hit',0.2);if(s.target)s.target.rtarget=false;
+      if(s.beam===4)G.fx.push({spr:'beamexplode',x:s.x+s.w-25,y:s.y+s.h/2-25,f:0,rate:3,n:5});else if(!s.beam)puff(s.x+s.w,s.y+s.h/2);}
     if(s.x>W+40||s.x<-60||s.y<-40||s.y>PH+40)s.dead=true;
     if(s.dead)continue;
     for(const e of G.enemies){if(e.dead||e.trigger||!hit(s,e))continue;
       if(e.type===23||e.type===22){puff(s.x+s.w,s.y+s.h/2);s.dead=true;break;} // force field eats shots
-      const ok=damageEnemy(e,s.dmg,s.x+s.w,s.y+s.h/2);
-      if(s.bounce){if(s.size===1){if(P.lvl[2]>=2)splitBounce(s);s.dead=true;}
-        else if(s.size===2&&P.lvl[2]>=3){splitBounce(s);s.dead=true;}
-        else{s.vx=-s.vx;s.x+=s.vx*3;s.bounces=(s.bounces||0)+1;}}
-      else if(!s.pierce)s.dead=true;
+      damageEnemy(e,s.dmg,s.x+s.w,s.y+s.h/2);
+      if(s.bounce){bounceHit(s,e,false);s.dead=true;}
+      else if(!(s.beam===4&&e.type!==0))s.dead=true;   // the biggest beam passes through everything but asteroids
+      if(s.beam===4)G.fx.push({spr:'beamexplode',x:s.x+s.w-25,y:s.y+s.h/2-25,f:0,rate:3,n:5});
       if(s.dead)break;}
   }
   G.shots=G.shots.filter(s=>!s.dead);
-  for(const L of G.lines){L.x+=15;L.t++;for(const sg of L.segs){if(!sg.alive)continue;if(solidAt(L.x+8,sg.y+16)||sg.y+16<0||sg.y+16>PH){sg.alive=false;continue;}
-      for(const e of G.enemies){if(e.dead||e.trigger)continue;if(hit({x:L.x,y:sg.y,w:16,h:32},e)){damageEnemy(e,8,L.x+8,sg.y+16);sg.alive=false;break;}}}
+  // powerline: 13 segments, 15 px per frame, 8 damage on every frame of contact, not stopped by enemies
+  for(const L of G.lines){L.x+=15;L.t++;for(const sg of L.segs){if(!sg.alive)continue;if(solidAt(L.x+8,sg.y+16)){sg.alive=false;continue;}
+      for(const e of G.enemies){if(e.dead||e.trigger)continue;if(hit({x:L.x,y:sg.y,w:16,h:31},e))damageEnemy(e,8,L.x+8,sg.y+16);}}
     if(L.x>W||!L.segs.some(s=>s.alive))L.dead=true;}
   G.lines=G.lines.filter(l=>!l.dead);
+  // enemy shots: the player box is the full 49x31 ship rectangle; the shield absorbs them
   for(const s of G.eshots){s.x+=s.vx-(s.world?G.speed:0);s.y+=s.vy;if(s.grav)s.vy+=0.12;s.f++;if(s.x<-20||s.x>W+20||s.y<-20||s.y>PH+20||(!s.ghost&&solidAt(s.x+s.w/2,s.y+s.h/2)))s.dead=true;
-    if(!s.dead&&!P.dead&&hit(s,{x:P.x+10,y:P.y+8,w:P.w-20,h:P.h-16})){s.dead=true;hurtPlayer(1);}}
+    if(!s.dead&&!P.dead&&hit(s,{x:P.x,y:P.y,w:49,h:31})){s.dead=true;if(P.shield<=0)hurtPlayer(1);}}
   G.eshots=G.eshots.filter(s=>!s.dead);
 }
 function eshot(x,y,vx,vy,spr,opt={}){const s=S[spr];G.eshots.push({x,y,w:s.fw,h:s.fh,vx,vy,spr,f:0,fixed:opt.frame,grav:opt.grav,ghost:opt.ghost,world:opt.world});}
@@ -384,24 +423,27 @@ function updateEnemies(){const l=level();
     if(hit(eb,pb)){
       if(e.type===9){if(e.item)pickup(e.item,e.stage,false);else sfx('hit',0.3);e.dead=true;continue;}
       if(e.type===33){explode(cx,cy,true);e.dead=true;hurtPlayer(2);continue;}
-      if(e.type===26||e.type===27){hurtPlayer(0,true);continue;}
-      if(P.shield>0){if(e.hp<1e9){G.score+=e.score;explode(cx,cy,e.w>=48);e.dead=true;}}   // shield rams normal enemies to pieces
-      else hurtPlayer(2);
+      // ramming (0x40bb61): costs 2 energy and removes the enemy; with the shield only 26/27/39 still kill.
+      // Enemies overlapping the left screen edge kill outright without the shield.
+      if(e.x<0){if(P.shield<=0)killPlayer();else if(e.type===26||e.type===27)hurtPlayer(2);continue;}
+      if(P.shield<=0){hurtPlayer(2);e.dead=true;}
+      else if(e.type===26||e.type===27||e.type===39){killPlayer();continue;}
+      if(![22,23,26,27,39].includes(e.type)){enemyDie(e,false);e.dead=true;}
     }
   }
   G.enemies=G.enemies.filter(e=>!e.dead);
-  for(const it of G.items){it.t++;it.x-=G.speed;if(!it.static){it.x-=0.3;it.y+=Math.sin(it.t*0.05)*0.4;}
-    if(it.x<-30)it.dead=true;if(!P.dead&&hit(it,{x:P.x,y:P.y,w:P.w,h:P.h})){pickup(it.kind,it.stage,it.shot);it.dead=true;}}
+  for(const it of G.items){it.t++;it.x-=G.speed;
+    if(it.x<-30)it.dead=true;if(!P.dead&&hit(it,{x:P.x,y:P.y,w:49,h:31})){pickup(it.kind);it.dead=true;}}
   G.items=G.items.filter(i=>!i.dead);
   for(const f of G.fx){f.f+=1/f.rate;if(f.vx!==undefined){f.x+=f.vx;f.y+=f.vy;if(f.grav)f.vy+=0.15;}if(f.life!==undefined){if(--f.life<=0)f.dead=true;}else if(f.f>=f.n)f.dead=true;}
   G.fx=G.fx.filter(f=>!f.dead);
 }
 function updatePlay(){
-  if(!P.dead)G.scroll+=G.speed;
+  G.scroll+=G.speed;
   if(G.scroll>=G.maxScroll){G.scroll=G.maxScroll;if(G.level%2===1&&!G.boss&&!G.bossDone){bossStart();}else if(!G.boss)G.stageClear=true;}
   if(G.boss)bossUpdate();
   updatePlayer();updateShots();updateEnemies();
-  if(G.stageClear&&!P.dead){G.state='clear';G.timer=200;G.score+=1000;G.lives++;sfx('bigshot',0.6);musicPlay('clear');}
+  if(G.stageClear&&!P.dead){G.state='clear';G.timer=200;G.lives++;sfx('bigshot',0.6);musicPlay('clear');}
 }
 
 // ---------- render
@@ -412,17 +454,17 @@ function drawPlayfield(){const l=level(),th=T[l.theme];
   ctx.drawImage(th.stc,0,0);
   drawLayer(l.A,l.wa,th.tsb,Math.floor(G.scroll/2));
   // behind-player things
-  for(const it of G.items)frame(ITEM_SPR[it.kind],0,it.x,it.y+Math.sin(it.t*0.1)*2);
+  for(const it of G.items)frame(ITEM_SPR[it.kind],0,it.x,it.y);
   for(const e of G.enemies){if(e.trigger){if(G.info){ctx.fillStyle=e.end?'#ff5c5c':'#5ad0f0';ctx.fillRect(e.x,e.y,16,16);}continue;}
     if(!e.spr)continue;if(e.flash&&e.flash%2){ctx.globalAlpha=0.5;}frame(e.spr,e.f,e.x,e.y+(e.off||0),e.dir<0);ctx.globalAlpha=1;
     if(e.type===9&&e.item)frame('powerups',ITEM_FRAME[e.item],e.x+11,e.y+41);}   // the claw carries its powerup visibly
   drawLayer(l.B,l.wb,th.tsa,Math.floor(G.scroll));
   for(const L of G.lines)for(const sg of L.segs)if(sg.alive)frame('powerline',Math.floor(L.t/3),L.x,sg.y);
-  for(const s of G.shots){if(s.kind==='rocket'){const k=(Math.round(Math.atan2(s.vy,s.vx)/(Math.PI/4))+8)%8;frame('rocket',[2,1,4,3,6,7,0,5][k],s.x,s.y);}else frame(s.kind,s.fixed!==undefined?s.fixed:Math.floor(s.f/(s.anim?4:2)),s.x,s.y);}
+  for(const s of G.shots){if(s.kind==='rocket'){frame('rocket',s.fr,s.x,s.y);}else frame(s.kind,s.fixed!==undefined?s.fixed:Math.floor(s.f/(s.anim?4:2)),s.x,s.y);}
   if(G.boss)bossDraw(G.boss);
   for(const s of G.eshots)frame(s.spr,s.fixed!==undefined?s.fixed:Math.floor(s.f/4),s.x,s.y);
-  if(!P.dead){const vis=P.inv>0?(Math.floor(G.frame/3)%2===0):true;if(vis)frame('player',2+Math.round(P.bank),P.x,P.y);
-    if(P.shield>0&&(P.shield>120||Math.floor(G.frame/4)%2))frame('shield',Math.floor(G.frame/4),P.x-8,P.y);
+  if(!P.dead){frame('player',playerFrame(),P.x,P.y);
+    if(P.shield>0){const u=1000-P.shield;if(u<=500||(u<=750&&u%2===0)||u%4===0)frame('shield',Math.floor(u/5)%8,P.x,P.y);}
 }
   for(const f of G.fx)frame(f.spr,f.f,f.x,f.y);
   ctx.restore();}
@@ -432,8 +474,8 @@ function drawHUD(){const hb=S.hudbottom;ctx.drawImage(S.hudtop.img,0,0);ctx.draw
   pip(127,P.lvl[0],P.weapon===0);pip(232,P.lvl[1],P.weapon===1);pip(331,P.lvl[2],P.weapon===2);
   ctx.fillStyle='#fff';ctx.font='bold 11px monospace';ctx.fillText(P.rockets,415,12);ctx.fillText(P.lines,523,12);
   num(G.lives,98,457);num(level().stage,160,457);num(G.score,514,457);
-  for(let i=0;i<3;i++){if(i<P.energy)frame('energy',0,195+i*96,439);}
-  if(P.beam>0){const s=S.beamload;const wdt=Math.round(248*P.beam/100);ctx.drawImage(s.img,0,0,wdt,24,197,452,wdt,24);}
+  for(let i=0;i<3;i++){if(i<P.energy)frame('energy',0,196+i*96,439);}
+  if(P.beam>0){const s=S.beamload;const wdt=P.beam;ctx.drawImage(s.img,0,0,wdt,24,197,452,wdt,24);}
   if(G.boss)bossHUD();
   if(G.info){ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(0,PY,250,110);const rows=['Scrollposition: '+Math.round(G.scroll),'Scrollspeed   : '+G.speed,'Anzahl Enemys : '+G.enemies.filter(e=>!e.trigger).length,'Anzahl Shots  : '+(G.shots.length+G.eshots.length),'Anzahl Expl.  : '+G.fx.length,'Next Object   : '+G.next+'/'+level().objects.length];rows.forEach((r,i)=>text(r,4,PY+4+i*17,3));}}
 function drawCenter(str,y,row=0){text(str,W/2,y,row,1);}
@@ -484,7 +526,7 @@ function render(){ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);
   drawPlayfield();drawHUD();
   if(G.state==='ready'){frame('getready',0,(W-329)/2,140);drawCenter('STAGE '+level().stage,220,0);drawCenter(level().hint,250,2);}
   else if(G.state==='gameover'){frame('gameover',0,(W-429)/2,180);}
-  else if(G.state==='clear'){drawCenter('STAGE CLEAR',200,0);drawCenter('BONUS 1000  +1 LIFE',235,2);if(G.bossDone)drawCenter('BOSS DESTROYED  +5000',270,3);}
+  else if(G.state==='clear'){drawCenter('STAGE CLEAR',200,0);drawCenter('+1 LIFE',235,2);if(G.bossDone)drawCenter('BOSS DESTROYED  +10000',270,3);}
   else if(G.state==='pause'){ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(0,PY,W,PH);drawCenter('PAUSE',220,0);}
   else if(G.state==='quit'){const bx=150,by=190,bw=340,bh=110;
     ctx.fillStyle='rgba(20,10,6,.92)';ctx.fillRect(bx,by,bw,bh);ctx.strokeStyle='#8a6a3a';ctx.lineWidth=2;ctx.strokeRect(bx+.5,by+.5,bw-1,bh-1);
@@ -515,10 +557,10 @@ function step(){G.frame++;musicTick();if(G.state==='title'&&MUSIC.want!=='title'
       if(G.startRow===0){if(pressed.ArrowLeft)G.diff=Math.max(0,G.diff-1);if(pressed.ArrowRight)G.diff=Math.min(2,G.diff+1);}
       if(pressed.Escape)G.state='menu';
       if(pressed.Enter||pressed.Space){
-        if(G.startRow===0){G.lives=5;G.score=0;P=null;G.slot=null;startLevel(0);}
+        if(G.startRow===0){G.lives=START_LIVES[G.diff];G.score=0;P=null;G.slot=null;startLevel(0);}
         else{const sv=readSlot(G.startRow-1);
           if(sv){G.diff=sv.diff;G.lives=sv.lives;G.score=sv.score;G.slot=G.startRow-1;P=newPlayer();P.lvl=sv.lvl.slice();P.weapon=sv.weapon;P.rockets=sv.rockets;P.lines=sv.lines;startLevel(sv.level);}
-          else{G.lives=5;G.score=0;P=null;G.slot=G.startRow-1;startLevel(0);}}}
+          else{G.lives=START_LIVES[G.diff];G.score=0;P=null;G.slot=G.startRow-1;startLevel(0);}}}
       break;}
     case 'options':{
       if(pressed.ArrowUp)G.optSel=(G.optSel+2)%3;if(pressed.ArrowDown)G.optSel=(G.optSel+1)%3;
