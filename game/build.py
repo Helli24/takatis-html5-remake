@@ -58,7 +58,7 @@ def gfx(name, fw=None, fh=None, key=True):
 
 # name: (file, frame w, frame h)
 SPRITES = {
-    'player': ('player', 49, 34), 'player2': ('player2', 49, 34),
+    'player': ('player', 49, 34), 'player2': ('player2', 49, 34), 'console': ('console', 640, 240),
     'spread': ('spreadshot', 18, 17), 'laser': ('laser', 24, 12),
     'bounce1': ('bounce1', 24, 24), 'bounce2': ('bounce2', 18, 18), 'bounce3': ('bounce3', 12, 12),
     'rocket': ('rocket', 16, 16), 'powerline': ('powerline', 16, 32),

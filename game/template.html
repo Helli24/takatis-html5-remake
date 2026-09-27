@@ -13,7 +13,7 @@
 <div id="wrap"><canvas id="c" width="640" height="480" tabindex="0"></canvas><div id="msg">LOADING…</div></div>
 <div class="bar">
   <span><kbd>←↑↓→</kbd> fliegen</span><span><kbd>Space</kbd> Primärwaffe</span><span><kbd>Strg</kbd> Beam laden</span><span><kbd>Shift</kbd> Rakete</span><span><kbd>Enter</kbd> Powerline</span>
-  <span><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> Spread/Bounce/Laser</span><span><kbd>F1</kbd> Hilfe</span><span><kbd>F2</kbd> Lautstärke</span><span><kbd>Esc</kbd> Spiel beenden</span><span><kbd>P</kbd> Pause</span><span><kbd>F4</kbd> Stage überspringen</span><span><kbd>F9</kbd> Infomodus</span><span><kbd>M</kbd> Sound</span><span><kbd>-</kbd><kbd>+</kbd> Musik</span>
+  <span><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> Spread/Bounce/Laser</span><span><kbd>F1</kbd> Hilfe</span><span><kbd>F2</kbd> Lautstärke</span><span><kbd>Esc</kbd> Spiel beenden</span><span><kbd>P</kbd> Pause</span><span><kbd>F4</kbd> Stage überspringen</span><span><kbd>Tab</kbd> Konsole</span><span><kbd>F9</kbd> Infomodus</span><span><kbd>M</kbd> Sound</span><span><kbd>-</kbd><kbd>+</kbd> Musik</span>
 </div>
 <script>var __wasmBytes=(function(){const b=atob('/*WASM_B64*/'),a=new Uint8Array(b.length);for(let i=0;i<b.length;i++)a[i]=b.charCodeAt(i);return a.buffer;})();var libopenmpt={wasmBinary:__wasmBytes,instantiateWasm:function(info,receive){WebAssembly.instantiate(__wasmBytes,info).then(function(r){window.__wasmInst=r.instance;window.__wasmInfo=info;receive(r.instance,r.module);}).catch(function(e){console.error('libopenmpt wasm',e);});return {};},onRuntimeInitialized:function(){window.__mptReady=true;}};</script>
 <script>/*LIBOPENMPT*/</script>
@@ -295,7 +295,7 @@ function turretStep(e,d){const A=e.an;A.col=1;if(P.x+50<e.x)A.col=0;if(P.x>e.x+4
 window.G=window.G||{};const G={state:'boot',level:0,scroll:0,speed:1,maxScroll:0,lives:5,score:0,diff:0,info:false,t:0,frame:0,
   enemies:[],shots:[],timer:0,music:null,gamma:100,endPhase:0,endT:0,bossActive:false,savedSpeed:0,sfxVol:1,
   sub:0,escLatch:false,blk:null,wait:null,sel:0,latch:false,song:0,jukebox:0,go:0,over:null,cheater:0,quitSel:0,paused:false,clicked:false};
-let P;window.__dbg=()=>({G,P,MUSIC,BOSS,V});window.__boss=()=>({phase:BOSS.phase,state:V.r32(0x494160),cnt:V.r32(0x49404c),hp:V.r32(0x494050),bx:V.r32(0x4948b8),by:V.r32(0x496458),draws:BOSS.draws.length,blits:BOSS.blits.length});window.__tick=(n)=>{for(let i=0;i<n;i++)step();render();};window.__startBoss=(id)=>{G.lives=5;G.score=0;P=null;G.level=2*id-1;startLevel(2*id-1,level().wb*32-641);G.state='play';G.gamma=100;};window.__fx=()=>({part:PART.length,expl:EXPL.length,shots:G.shots.length});window.__lv=(i)=>{P=null;startLevel(i);G.state='play';G.gamma=100;};window.__eshot=(x,y,spr)=>eshot(x,y,0,0,spr);window.__end=()=>{if(!P)P=newPlayer();endStart();};window.__probe=()=>({tile:!!tileHit(shipShape()),ram:G.enemies.filter(e=>!e.dead&&ramTest(e)).map(e=>e.type)});window.__GL=()=>GL;window.__rerender=()=>bossRender();
+let P;window.__dbg=()=>({G,P,MUSIC,BOSS,V,CON});window.__boss=()=>({phase:BOSS.phase,state:V.r32(0x494160),cnt:V.r32(0x49404c),hp:V.r32(0x494050),bx:V.r32(0x4948b8),by:V.r32(0x496458),draws:BOSS.draws.length,blits:BOSS.blits.length});window.__tick=(n)=>{for(let i=0;i<n;i++)step();render();};window.__startBoss=(id)=>{G.lives=5;G.score=0;P=null;G.level=2*id-1;startLevel(2*id-1,level().wb*32-641);G.state='play';G.gamma=100;};window.__fx=()=>({part:PART.length,expl:EXPL.length,shots:G.shots.length});window.__lv=(i)=>{P=null;startLevel(i);G.state='play';G.gamma=100;};window.__eshot=(x,y,spr)=>eshot(x,y,0,0,spr);window.__end=()=>{if(!P)P=newPlayer();endStart();};window.__probe=()=>({tile:!!tileHit(shipShape()),ram:G.enemies.filter(e=>!e.dead&&ramTest(e)).map(e=>e.type)});window.__GL=()=>GL;window.__rerender=()=>bossRender();
 // player values from Takatis.exe: new game 0x420bf4, level (re)start 0x426710, update 0x41ced0
 function newPlayer(){return {x:10,y:184,w:49,h:34,energy:3,dead:0,bank:0,cool:0,swcool:0,weapon:0,lvl:[1,0,0],rockets:5,lines:3,beam:0,latch:{},
   shieldOn:false,shieldT:0,shieldF:0,shieldC:0,hum:false,shieldDraw:[],boomed:false,spd:3};}
@@ -496,7 +496,7 @@ function rocketStep(s){
 // update and draw of one shot (0x40fe10): the shot is drawn at its old position (for the laser including the wave
 // offset), then moved; the pixel tests of the collisions use that drawn position. Enemy shots and items drift with
 // (speed-1); an item stays on its claw (+8/+42) and drifts 1 px per frame more once the claw is gone.
-let VOLCANO_SAFE=false;   // 0x493ffc: set by nothing in the game, volcano balls stay dangerous
+let VOLCANO_SAFE=false;   // 0x493ffc: "crazy volcanos" in the console, volcano balls become harmless
 function shotStep(s){
   if(s.type===28&&s.g60===16){s.vy++;s.g60=0;}s.g60++;
   if(s.type===7)laserStep(s);
@@ -549,7 +549,8 @@ function shotHitsEnemy(s,e){e.hp-=s.dmg;
     if(!small)for(let k=0;k<25;k++)particle(e.x,e.y,0);
     if(e.type===6){shotNew(e.x+10,e.y+10,-1,0,12);shotNew(e.x-10,e.y+25,-1,0,12);shotNew(e.x+30,e.y+25,-1,0,12);}   // extra load of the claws
     if(e.type===7)shotNew(e.x+10,e.y+10,-1,0,13);
-    if(!(e.type>=3&&e.type<=9)&&!small){const r=R(3500);if(r<=20)shotNew(e.x,e.y,-1,0,14);else if(r<=100)shotNew(e.x,e.y,-1,0,12);else if(r<=140)shotNew(e.x,e.y,-1,0,13);}
+    if(!(e.type>=3&&e.type<=9)&&!small&&CON.xmas){const r=R(3);shotNew(e.x,e.y,-1,0,[14,12,13][r]);}   // "merry xmas" (0x41f793)
+    else if(!(e.type>=3&&e.type<=9)&&!small){const r=R(3500);if(r<=20)shotNew(e.x,e.y,-1,0,14);else if(r<=100)shotNew(e.x,e.y,-1,0,12);else if(r<=140)shotNew(e.x,e.y,-1,0,13);}
     e.dead=true;}
   else if(e.type!==23){const n=R(4)+1;for(let k=0;k<n;k++){if(e.type===0)particle(e.x-25,e.y-25,2);else particle(e.x-25,s.y-25,1);sfx('hit');}}
   if(!(s.type===5||(s.type===4&&e.type!==0)))s.act=false;
@@ -619,7 +620,7 @@ function tileHit(A){const l=level(),ts=T[l.theme].tsa,ox=Math.floor(G.scroll);
   for(let c=c0;c<=c1;c++)for(let r=r0;r<=r1;r++){const t=l.B[r*l.wb+c];if(!t)continue;
     const B={img:ts,sx:(t%10)*32,sy:Math.floor(t/10)*32,w:32,h:32,x:c*32-ox,y:r*32};if(pixHit(A,B))return B;}
   return null;}
-const shipShape=()=>shapeOf('player',playerFrame(),P.x,P.y);
+const shipShape=()=>shapeOf(CON.ship,playerFrame(),P.x,P.y);
 // an enemy's image for the collision routine 0x412f50: the source rectangle of its last blit (0x40b784) at its real x
 // (so across the left edge the image sits too far left); above the screen it sits at y=0 with the rectangle starting
 // at -y, whatever the animation row (0x41ee73, 0x40bbcd)
@@ -713,7 +714,7 @@ function enemyStep(e,out){const A=e.an;e.t++;
         for(const [n,t] of [[80,5],[80,4],[40,3]])for(let k=0;k<n;k++){const dx=R(100)-50,dy=R(100)-50;particle(e.x+dx,e.y+dy+20,t);}sfx('morph');
         Object.assign(e,{type:28,hp:120,hp0:120,score:500,w:72,h:72,x:e.x-10,y:e.y-10,spr:'e28',an:{col:0,row:0,cnt:1,dir:0,tick:0}});}break;
       case 31:if(lastTick(e,10)&&!A.dir){for(let yy=0;yy<PH;yy+=32)eshot(e.x+50,yy,7,0,'powerline');sfx('powerline');}break;   // fires once
-      case 29:if(e.cd===0){const vx=Math.floor(Math.random()*8)-4;let vy=0;while(vy>-1)vy=-Math.floor(Math.random()*6);eshot(e.x+24,e.y-15,vx,vy,'volcanoball');sfx('bounce');e.cd=50;}break;
+      case 29:if(e.cd===0){const vx=Math.floor(Math.random()*8)-4;let vy=0;while(vy>-1)vy=-Math.floor(Math.random()*6);eshot(e.x+24,e.y-15,vx,vy,'volcanoball');sfx('bounce');e.cd=VOLCANO_SAFE?15:50;}break;
     }
     e.cd--;
     if(e.hp<=Math.trunc(e.hp0/2)&&R(7)===3)particle(e.x+Math.trunc(e.w/2),e.y+Math.trunc(e.h/2),3);   // damaged enemies smoke (0x40aa02)
@@ -863,7 +864,7 @@ function drawPlayfield(){const l=level(),th=T[l.theme];
   // then, as in 0x41c820: the ship with its shield, the explosions, the particles and the shot list. Ship and shield
   // are blitted without clipper and vanish once they touch the right edge.
   if(!P.dead){for(const d of P.shieldDraw)if(!d.front&&P.x+56<=W)frame('shield',d.f,P.x,P.y);
-    if(P.x+49<=W)frame('player',playerFrame(),P.x,P.y);
+    if(P.x+49<=W)frame(CON.ship,playerFrame(),P.x,P.y);
     for(const d of P.shieldDraw)if(d.front&&P.x+56<=W)frame('shield',d.f,P.x,P.y);}
   explDraw();partDraw();shotsDraw();
   ctx.restore();}
@@ -889,7 +890,7 @@ const bw=(k,x,y)=>bf(k,0,0,S[k].w,S[k].h,x,y);
 const black=()=>{ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);};
 const enter=()=>keys.Enter||keys.NumpadEnter;
 const SHELL=new Set(['boot','intro','title','menu','newgame','options','joystick','help','hiscore','credits']);
-const onShell=()=>SHELL.has(G.state)||G.state==='ready'||(G.state==='play'&&(G.over||G.go));
+const onShell=()=>SHELL.has(G.state)||G.state==='ready'||(G.state==='play'&&(G.over||G.go||CON.open));
 // fades (0x4124f0 in, 0x412620 out): each of the 100 gamma steps is held for ms, a fade out ends with both buffers
 // black. Escape during any fade sets 0x496460 for good: from then on every fade ends at once, provided the start
 // sequence got past its loading screen (0x494898 > 3).
@@ -954,7 +955,7 @@ function introEsc(){if(keys.Escape||G.sub===9||G.escLatch){G.state='title';onScr
 // sin(row*0.01+phase)*180 (the phase runs 0..30 and back in steps of 0.01), stars; Space, Return or Escape lead to the
 // menu once released; E+N+D pressed together start the end sequence
 const TITLE={ph:0,up:false};   // 0x496718, 0x49671c
-function titleStep(){G.bossActive=false;
+function titleStep(){G.bossActive=false;VOLCANO_SAFE=false;CON.xmas=false;CON.bullet=false;   // 0x4203b8
   if(keys.KeyE&&keys.KeyN&&keys.KeyD){if(!P)P=newPlayer();endStart();return;}
   if(G.song!==1)musicPlay('title');
   const F01=Math.fround(0.01);
@@ -1016,7 +1017,7 @@ function newGameStep(){onScr(()=>{rahmen(64,62,15,10);bf('menu',224,8,448,64,210
   if(keys.Space||enter())waitUp(()=>keys.Space||enter(),newGameGo);}
 function newGameGo(){let v=null;
   if(G.sel>0){v=G.slots[G.sel-1];if(v.level<0)return;G.diff=v.skill;}
-  G.sel=0;P=newPlayer();G.score=0;G.cheater=0;G.shieldT0=0;
+  G.sel=0;P=newPlayer();G.score=0;VOLCANO_SAFE=false;G.cheater=0;G.shieldT0=0;
   if(v){P.weapon=v.weapon;P.lvl=[v.spread,v.laser,v.bounce];P.rockets=v.rockets;P.lines=v.lines;G.lives=v.lives;G.score=v.score;G.cheater=v.cheater;G.shieldT0=v.shield;}
   else G.lives=[5,4,3][G.diff];
   G.go=0;G.over=null;startLevel(v?v.level:0);}
@@ -1130,7 +1131,7 @@ function creditsStep(){const C=CRED;
   if(keys.Escape)waitUp(()=>keys.Escape,()=>{G.state='menu';sfx('beam');G.sel=0;onScr(()=>bw('title',0,0));C.init=false;musicPlay('title');PB.top=16;PB.bottom=433;});}
 
 // ---------- in the game (state 1): F1 help, F2 options, Escape "Spiel beenden ?" over the frozen picture (0x4176dd)
-function overlays(){if(G.over||G.go)return;
+function overlays(){if(G.over||G.go||CON.ac)return;
   const open=o=>{onScr(()=>ctx.drawImage(cv,0,0));sfx('beam');G.over=o;};
   if(keys.F1){open('help');return;}
   if(keys.F2){open('options');G.sel=0;return;}
@@ -1185,9 +1186,63 @@ function render(){
 // stage, faded in with 100 steps of 6 ms, then 2 s wait
 function drawReady(){black();drawHUD();frame('getready',0,160,180);for(const [y,s,c] of DATA.intro[G.level])text(s,W/2,y,c,1);}
 
+// ---------- console (0x401500..0x4029af, input 0x425c50, drawing 0x4016e0), only during the game and not after game
+// over. Tab opens it (0x401b60) or closes it (0x401c20), each at most every 500 ms; opening clears 0x4966ac, closing
+// sets it, so while Tab is held the second frame leaves the game standing still under the open console and the
+// closing frame lets it run again. Nine lines of history and the input line "> ..." in white GDI text (system font)
+// at x=25 over Console.gfx on the frozen screen. a-z and space are typed at most one every 150 ms (each with
+// Klippikloppi), backspace every 150 ms, Return every 500 ms. The commands are compared exactly; most answers replace
+// the input line, "help" and unknown commands first move it up (0x401e80).
+const CON={open:false,ac:false,lines:Array(9).fill(''),input:'',tag:0x78,t:-1e9,base:null,ship:'player',xmas:false,bullet:false,clock:0};
+function conPush(){CON.lines.shift();CON.lines.push(CON.input);CON.input='';}
+function conSay(s){CON.input=s;conPush();}
+function conCheat(){sfx('v_cheat');G.cheater=1;}
+function conCmd(c){
+  switch(c){
+    case 'quit':conSay('ShutDown !');fadeOut(5,()=>{musicStop();MUSIC.want=null;CON.open=CON.ac=false;G.state='boot';G.sub=0;});break;   // 0x4966a8: the program ends
+    case 'the nexus':conSay('Glaubst Du wirklich, dass der Cheat aus der');conSay('Demoversion hier noch funktioniert ?');break;
+    case 'help':conPush();for(const s of ['Befehle:','-------------','quit           = Spiel beenden','infomode on    = Leveldaten anzeigen ein','infomode off   = Leveldaten anzeigen aus'])conSay(s);break;
+    case 'infomode on':conSay('Info-Modus ein');G.info=true;break;
+    case 'infomode off':conSay('Info-Modus aus');G.info=false;break;
+    case 'the barrens':conCheat();conSay('Schild aktiv !');P.shieldOn=true;break;
+    case 'silkworm':conCheat();conSay('Raketen hinzugefügt !');P.rockets+=5;break;
+    case 'rick dangerous':conCheat();conSay('Powerlines hinzugefügt');P.lines+=5;break;
+    case 'master of puppets':conCheat();conSay('99 Leben für die Loser');G.lives=99;break;
+    case 'ping pong':conCheat();conSay('Bounce-State Maximum');P.lvl[2]=4;break;
+    case 'we will rock you':conCheat();conSay('Laser-State Maximum');P.lvl[1]=4;break;
+    case 'feuerwuxe':conCheat();conSay('Spread-State Maximum');P.lvl[0]=4;break;
+    case 'pfundi':conSay('Selbstzerstörungs-Sequenz eingeleitet !!!');killPlayer();G.lives=1;break;
+    case 'dosenhalter':break;   // mciSendString("set cdaudio door open"), no answer
+    case 'katakis':conSay('Wer das Original nicht kennt, hat was verpasst !');CON.ship='player2';break;
+    case 'wanderwuxe':conSay('Normales Raumschiff gewählt');CON.ship='player';break;
+    case 'crazy volcanos':conCheat();conSay('Feigling !');VOLCANO_SAFE=true;break;
+    case 'merry xmas':conCheat();conSay('...viele Extras !');CON.xmas=true;break;
+    case 'zerbiebomb':conSay('...das haut rein !!!');conCheat();   // a spread shot with 11000 damage out of every enemy
+      for(const e of G.enemies)if(!e.dead)shotNew(e.x,e.y,8,0,0,0,11000);break;
+    case 'scott me up beamy':conCheat();conSay('Das Ende ist nahe...');G.scroll=level().wb*32-1280;break;
+    case 'bullettime mode on':conSay('Bullettime-Mode ein');CON.bullet=true;break;   // 0x485698: at least 70 ms per frame
+    case 'bullettime mode off':conSay('Bullettime-Mode aus');CON.bullet=false;break;
+    default:conPush();conSay('Befehl existiert nicht !');}}
+function conStep(){const now=CON.clock;CON.clock+=CON.bullet?70:1000/FPS;
+  if(keys.Tab){const ok=CON.tag!==45||CON.t<=now-500;
+    if(!CON.open){if(ok){CON.base=snapScreen();CON.open=true;CON.input='';CON.tag=45;CON.t=now;}CON.ac=false;}
+    else{if(ok){CON.open=false;CON.tag=45;CON.t=now;}CON.ac=true;}}
+  if(!CON.open)return;
+  for(let k=0;k<27;k++){const code=k<26?'Key'+String.fromCharCode(65+k):'Space';
+    if(keys[code]&&CON.t<=now-150){if(CON.input.length<50){CON.input+=k<26?String.fromCharCode(97+k):' ';sfx('klippikloppi');}CON.tag=k<26?97+k:32;CON.t=now;}}
+  if(keys.Backspace&&!(CON.tag===42&&CON.t>now-150)){if(CON.input.length){CON.input=CON.input.slice(0,-1);sfx('klippikloppi');}CON.tag=42;CON.t=now;}
+  if(enter()&&!(CON.tag===43&&CON.t>now-500)){
+    if(CON.input===''){sfx('klippikloppi');conPush();}else{conCmd(CON.input);CON.input='';}
+    CON.tag=43;CON.t=now;}
+  onScr(conDraw);}
+function conDraw(){ctx.drawImage(CON.base,0,0);bw('console',0,0);
+  ctx.save();ctx.font='bold 13px "Microsoft Sans Serif",Tahoma,Arial,sans-serif';ctx.textBaseline='top';ctx.fillStyle='#fff';
+  CON.lines.forEach((s,i)=>ctx.fillText(s,25,5+i*20));ctx.fillText('> '+CON.input,25,185);ctx.restore();}
+
 // ---------- main loop
 function step(){G.frame++;musicTick();
   // remake helpers: M sound on/off, -/+ music volume, F9 info mode
+  if(CON.open)pressed={};   // the console takes the letters
   if(pressed.KeyM){muted=!muted;if(muted)for(const k in VOICE)sfxStop(k);}
   if(pressed.Minus||pressed.NumpadSubtract){OPTS.music=Math.max(0,OPTS.music-10);optsApply();optsSave();}
   if(pressed.Equal||pressed.NumpadAdd){OPTS.music=Math.min(100,OPTS.music+10);optsApply();optsSave();}
@@ -1213,6 +1268,7 @@ function step(){G.frame++;musicTick();
     case 'play':
       if(G.go){gameOverStep();break;}
       if(G.over){if(G.over==='help')helpStep();else if(G.over==='options')optionsStep();else quitStep();break;}
+      conStep();if(CON.ac)break;   // console (0x425c50): while it is open the game stands still
       if(G.paused){if(pressed.KeyP)G.paused=false;break;}   // remake: P pauses
       if(pressed.KeyP){G.paused=true;break;}
       if(pressed.F4){if(G.bossActive)V.w32(0x494050,0);else if(G.scroll<=G.maxScroll)G.scroll=G.maxScroll+1;}   // remake: skip the stage
@@ -1221,7 +1277,7 @@ function step(){G.frame++;musicTick();
   }
   pressed={};}
 let acc=0,last=performance.now();
-function loop(now){try{const dt=Math.min(100,now-last);last=now;acc+=dt;let n=0;while(acc>=1000/FPS&&n<4){step();acc-=1000/FPS;n++;}render();}catch(e){window.__lastErr=String(e)+' | '+(e.stack||'');console.error(e);}requestAnimationFrame(loop);}
+function loop(now){try{const dt=Math.min(100,now-last);last=now;acc+=dt;let n=0;const fm=CON.bullet?70:1000/FPS;while(acc>=fm&&n<4){step();acc-=fm;n++;}render();}catch(e){window.__lastErr=String(e)+' | '+(e.stack||'');console.error(e);}requestAnimationFrame(loop);}
 loadAssets().then(()=>{msg.hidden=true;cv.focus();optsApply();requestAnimationFrame(loop);});
 })();
 </script>

@@ -187,6 +187,17 @@ Adressen beziehen sich auf `extracted/Takatis.exe`.
   Türme; ihr Text steht als 351 Zeilen im Code bei `0x426bb8`, die Hilfe als 5 Seiten bei `0x480e0c`.
 * **Im Spiel** (`0x4176dd`): F1 Hilfe, F2 Lautstärke, Escape die Abfrage „Spiel beenden ?“ (nicht bei Game over
   und nicht im Stage-Übergang `0x4966dc`), Tab die Konsole. Eine Pause-Taste gibt es nicht.
+* **Konsole** (Tab, `0x401500`–`0x4029af`, Eingabe `0x425c50`): nur im Spiel, hält es an. Neun Zeilen Verlauf
+  und die Eingabe „> …“ in weißer Systemschrift über `Console.gfx` auf dem eingefrorenen Bild. Buchstaben und
+  Leerzeichen höchstens alle 150 ms, Return alle 500 ms. Befehle: `help`, `quit`, `infomode on/off`,
+  `bullettime mode on/off` (mindestens 70 ms je Frame statt 10, `0x485698`), `katakis`/`wanderwuxe`
+  (`player2.gfx` bzw. normales Schiff), `the nexus`, `dosenhalter` (öffnet im Original das CD-Laufwerk). Cheats mit
+  Sprachsample und Cheater-Flag: `the barrens` Schild, `silkworm` +5 Raketen, `rick dangerous` +5 Powerlines,
+  `master of puppets` 99 Leben, `ping pong`/`we will rock you`/`feuerwuxe` Bounce/Laser/Spread auf 4,
+  `crazy volcanos` harmlose Vulkankugeln (Vulkane feuern dafür alle 15 statt 50 Frames), `merry xmas` jeder
+  Abschuss lässt Schild, Rakete oder Powerline fallen, `zerbiebomb` ein Schuss mit 11000 Schaden aus jedem
+  Gegner, `scott me up beamy` springt ans Levelende. `pfundi` zerstört das Schiff und setzt die Leben auf 1.
+  Der Titel setzt Vulkane, Extras und Bullettime zurück.
 * **Optionen** ohne `Options.ini` (`0x419161`): Effekt an, Joystick-Knöpfe 0..7, Rauch aus, Lautstärken 100/100.
   Die mitgelieferte `Options.ini` besteht aus 13 Nullbytes, das Remake nimmt deshalb die Werte ohne Datei.
 * **Spielstände** `Takatis.SG1`..`SG6`, 48 Byte, jeder Wert +0x1966: Stage, Schwierigkeit, Waffe, Spread, Laser,
@@ -210,8 +221,8 @@ einschalten.
 
 Angenähert: Joystick (nur „Kein Joystick angeschlossen !“), „Quit Game“ blendet ab und kehrt zum
 Startbild des Remakes zurück, der Flaggeneffekt der Highscores vergleicht in Zeile 0 mit 0 statt mit
-Speicherresten, die Prüfsummen der Dateien entfallen. Noch offen: die Konsole (Tab) mit
-ihren Befehlen.
+Speicherresten, die Prüfsummen der Dateien entfallen, die Konsole schreibt mit einer Browserschrift
+statt der Windows-Systemschrift.
 
 Hilfen des Remakes, die es im Original nicht gibt: Lautstärken starten bei 20 statt 100, Escape überspringt das Intro schon ab dem
 Poke53280-Logo (im Original erst ab dem ersten Intro-Bild), P Pause, F4 Stage überspringen bzw.
