@@ -23,8 +23,8 @@ Originaldaten verwendet.
 | `game/bossvm.py` | übersetzt die Endgegner-Routine `0x4036d0`–`0x4086e1` der EXE beim Bauen in JavaScript |
 | `game/template.html` | Quelltext des Remakes (Engine, Menüs, Gegner, Bosse) |
 | `game/build.py` | baut daraus `game/takatis.html` mit allen eingebetteten Daten |
-| `game/patch_*.py` | dokumentierte Einzelschritte der Entwicklung |
-| `viewer/takatis-analyse.html` | Bericht zur Analyse |
+| `tests/` | Browser-Tests mit Playwright, Start mit `tests/run.sh` |
+| `viewer/takatis-analyse.html` | Bericht zur Analyse (Stand vom Projektbeginn) |
 | `viewer/template.html` | Quelltext des Level-Atlas |
 | `libopenmpt.js`, `libopenmpt.wasm` | Fremdbibliothek (BSD) zum Abspielen der Impulse-Tracker-Musik |
 
@@ -39,6 +39,18 @@ python game/build.py        # erzeugt game/takatis.html (ca. 14 MB, alles eingeb
 
 Voraussetzung sind `extracted/` sowie `assets/` (Sounds und Musik in Standardformaten).
 `assets/` wird aus `extracted/` erzeugt, siehe `tools/takatis.py`.
+
+## Testen
+
+```bash
+tests/run.sh                # braucht Node.js und Playwright mit Chromium
+```
+
+Die Tests laden `game/takatis.html` in Chromium, steuern das Spiel über Tastatur-Ereignisse und
+Hilfsfunktionen der Seite (`__tick`, `__dbg`, `__lv`, `__startBoss`) und prüfen, dass kein Fehler
+auftritt: alle 12 Stages mit einem Bot, Spielmechanik, Laser, Pressen, Bosskampf mit Speichern,
+alle Menüs mit Game over und Namenseingabe, Spielstände laden, Konsole und Cheats. Bildschirmfotos
+und Ausgaben landen in `tests/out/`.
 
 ## Erkenntnisse zu den Dateiformaten
 
@@ -224,9 +236,10 @@ Startbild des Remakes zurück, der Flaggeneffekt der Highscores vergleicht in Ze
 Speicherresten, die Prüfsummen der Dateien entfallen, die Konsole schreibt mit einer Browserschrift
 statt der Windows-Systemschrift.
 
-Hilfen des Remakes, die es im Original nicht gibt: Lautstärken starten bei 20 statt 100, Escape überspringt das Intro schon ab dem
-Poke53280-Logo (im Original erst ab dem ersten Intro-Bild), P Pause, F4 Stage überspringen bzw.
-Boss zerstören, F9 Infomodus, M Ton aus, −/+ Musiklautstärke.
+Hilfen des Remakes, die es im Original nicht gibt: Lautstärken starten bei 20 statt 100,
+Escape überspringt das Intro schon ab dem Poke53280-Logo (im Original erst ab dem ersten
+Intro-Bild), P Pause, F4 Stage überspringen bzw. Boss zerstören, F9 Infomodus, M Ton aus,
+−/+ Musiklautstärke.
 
 ## Der Patch für das Original
 
