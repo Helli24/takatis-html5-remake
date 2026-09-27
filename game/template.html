@@ -329,7 +329,7 @@ function enemyDie(e,byShot){G.score+=e.score*(byShot?5:1);   // shot kills add t
   if(e.type===28)for(let k=0;k<5;k++)for(const [v,s] of [[[-3,-3],'spike1'],[[3,3],'spike1'],[[3,-3],'spike2'],[[-3,3],'spike2']])eshot(e.x+28,e.y+28,v[0],v[1],s);
   if(!(e.type>=3&&e.type<=9)&&!(e.type>=18&&e.type<=21)){const r=Math.floor(Math.random()*3500);
     const k=r<=20?'shield':r<=100?'rocket':r<=140?'line':null;if(k)G.items.push({kind:k,x:e.x,y:e.y,w:20,h:20,t:0});}}
-function damageEnemy(e,dmg,sx,sy){if(e.trigger)return false;if(e.hp>=1e9){puff(sx,sy);sfx('hit',0.3);return true;}e.hp-=dmg;e.flash=4;if(e.hp<=0){enemyDie(e,true);e.dead=true;}else{puff(sx,sy);sfx('hit',0.3);}return true;}
+function damageEnemy(e,dmg,sx,sy){if(e.trigger)return false;if(e.hp>=1e9){puff(sx,sy);sfx('hit',0.3);return true;}e.hp-=dmg;if(e.hp<=0){enemyDie(e,true);e.dead=true;}else{puff(sx,sy);sfx('hit',0.3);}return true;}
 
 // ---------- update
 function updatePlayer(){
@@ -419,7 +419,7 @@ function shootAt(e,speed=3,spr='bullet',size=8){const cx=e.x+e.w/2,cy=e.y+e.h/2;
 function updateEnemies(){const l=level();
   while(G.next<l.objects.length&&l.objects[G.next][1]<=G.scroll+W){spawn(l.objects[G.next]);G.next++;}
   P.spd=3;G.shake=0;   // the draw code resets the ship speed every frame; an attached magnet sets it to 1 (0x42c065, 0x40a610)
-  for(const e of G.enemies){e.t++;if(e.flash)e.flash--;
+  for(const e of G.enemies){e.t++;
     if(e.type===17){   // faller (0x40a6bb): waits until the ship's nose passes, shakes for 30 frames, then drops at 6 px per frame
       if(e.dy!==6)e.dy=0;if(P.x+49>e.x&&e.dy!==6&&!e.arm)e.arm=1;
       if(e.arm&&e.dy!==6){e.arm++;G.shake=Math.floor(Math.random()*6)-3;}if(e.arm===30)e.dy=6;}
@@ -484,7 +484,7 @@ function drawPlayfield(){const l=level(),th=T[l.theme];
   // behind-player things
   for(const it of G.items)frame(ITEM_SPR[it.kind],0,it.x,it.y);
   for(const e of G.enemies){if(e.trigger){if(G.info){ctx.fillStyle=e.end?'#ff5c5c':'#5ad0f0';ctx.fillRect(e.x,e.y,16,16);}continue;}
-    if(!e.spr)continue;if(e.flash&&e.flash%2){ctx.globalAlpha=0.5;}frame(e.spr,e.f,e.x+(e.type===17?G.shake:0),e.y+(e.off||0),e.dir<0);ctx.globalAlpha=1;
+    if(!e.spr)continue;frame(e.spr,e.f,e.x+(e.type===17?G.shake:0),e.y+(e.off||0),e.dir<0);
 }
   drawLayer(l.B,l.wb,th.tsa,Math.floor(G.scroll));
   for(const L of G.lines)for(const sg of L.segs)if(sg.alive)frame('powerline',Math.floor(L.t/3),L.x,sg.y);
