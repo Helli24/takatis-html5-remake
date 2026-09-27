@@ -210,6 +210,11 @@ Adressen beziehen sich auf `extracted/Takatis.exe`.
   Abschuss lässt Schild, Rakete oder Powerline fallen, `zerbiebomb` ein Schuss mit 11000 Schaden aus jedem
   Gegner, `scott me up beamy` springt ans Levelende. `pfundi` zerstört das Schiff und setzt die Leben auf 1.
   Der Titel setzt Vulkane, Extras und Bullettime zurück.
+* **Gemeinsamer Abschluss jedes Frames** (`0x417bb6`, in allen Zuständen): Boss-Energieleiste (nur im Spiel, mit
+  Leben und ohne Game over), Konsole, Infomodus (Scrollposition und -tempo, Zahl und Speicher der Schüsse,
+  Trümmer, Explosionen und aktiven Gegner, Ziffern aus `font2.gfx`), „Version 1.2“ oben links in Titel und Menü,
+  dann `Flip` und die Wartezeit bis 10 ms. Das Stage-Intro von 4-1, 5-1 und 6-1 setzt ein negatives Scrolltempo
+  wieder auf 1 (`0x416715`).
 * **Optionen** ohne `Options.ini` (`0x419161`): Effekt an, Joystick-Knöpfe 0..7, Rauch aus, Lautstärken 100/100.
   Die mitgelieferte `Options.ini` besteht aus 13 Nullbytes, das Remake nimmt deshalb die Werte ohne Datei.
 * **Spielstände** `Takatis.SG1`..`SG6`, 48 Byte, jeder Wert +0x1966: Stage, Schwierigkeit, Waffe, Spread, Laser,

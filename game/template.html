@@ -237,7 +237,8 @@ function bossDraw(){if(!G.bossActive)return;for(const b of BOSS.blits){
 function bltOk(x,y,[l,t,r,b],sw,sh){return l>=0&&t>=0&&r>l&&b>t&&r<=sw&&b<=sh&&x>=0&&y>=0&&x+r-l<=W&&y+b-t<=H;}
 const blit=b=>ctx.drawImage(b.img,b.sx,b.sy,b.w,b.h,b.x,b.y,b.w,b.h);
 // boss energy (0x417bb6): frame at the top of the playfield, bar at x=66, 200 px for full energy
-function bossHUD(){if(!G.bossActive)return;ctx.drawImage(S.bosshud.img,0,PY);const wdt=Math.floor(Math.max(0,V.r32(0x494050))*200/V.r32(0x494834));
+// boss energy bar (0x417bb6): only while the boss is there, lives are left and it is not game over
+function bossHUD(){if(!G.bossActive||!G.lives||G.go)return;ctx.drawImage(S.bosshud.img,0,PY);const wdt=Math.floor(Math.max(0,V.r32(0x494050))*200/V.r32(0x494834));
   if(wdt>0)ctx.drawImage(S.bossenergy.img,0,0,wdt,24,66,PY,wdt,24);}
 // ---------- input
 const keys={};let pressed={};
@@ -308,6 +309,7 @@ function level(){return G.level===12?OUTRO_LV:LEVELS[G.level];}
 // dying at a boss the saved scroll speed comes back
 function startLevel(i,fromScroll=0,respawn=false){G.level=i;const l=level();G.scroll=fromScroll;if(!respawn)G.speed=l.speed;G.maxScroll=l.wb*32-640;
   if(respawn&&G.speed===0&&G.savedSpeed)G.speed=G.savedSpeed;
+  if((i===6||i===8||i===10)&&G.speed<0)G.speed=1;   // the intro of 4-1, 5-1 and 6-1 turns a backward scroll forward (0x416715)
   G.enemies=[];G.shots=[];PART=[];EXPL=[];G.objSt=new Uint8Array(l.objects.length);G.pblits=[];G.eblits=[];
   G.bigone=false;G.bossActive=false;BOSS.phase=null;BOSS.fadeMs=0;
   G.endPhase=0;G.endT=0;G.clearMusic=false;G.bossFade=0;WAVE.prev=WAVE.cur=null;sfxStop('shield');
@@ -876,7 +878,7 @@ function drawHUD(){const hb=S.hudbottom;ctx.drawImage(S.hudtop.img,0,0);ctx.draw
   for(let i=0;i<3;i++){if(i<P.energy)frame('energy',0,196+i*96,439);}
   if(P.beam>0){const s=S.beamload;const wdt=P.beam;ctx.drawImage(s.img,0,0,wdt,24,197,452,wdt,24);}
   bossHUD();
-  if(G.info){ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(0,PY,250,110);const rows=['Scrollposition: '+Math.round(G.scroll),'Scrollspeed   : '+G.speed,'Anzahl Enemys : '+G.enemies.filter(e=>!e.trigger).length,'Anzahl Shots  : '+G.shots.length,'Anzahl Expl.  : '+EXPL.length,'Objekte aktiv : '+G.objSt.reduce((a,v)=>a+v,0)+'/'+level().objects.length];rows.forEach((r,i)=>text(r,4,PY+4+i*17,3));}}
+}
 function drawCenter(str,y,row=0){text(str,W/2,y,row,1);}
 // ========== the screens outside the game: the states of 0x4936b0 ==========
 // Every screen is a routine that runs once per frame and draws into the persistent buffer SCR, the way the original
@@ -964,12 +966,12 @@ function titleStep(){G.bossActive=false;VOLCANO_SAFE=false;CON.xmas=false;CON.bu
       if(v>=0)bf('logo',0,r,640-vi,r+1,vi,r+17);else bf('logo',-vi,r,640,r+1,0,r+17);}
     if(!TITLE.up){TITLE.ph=Math.fround(TITLE.ph+F01);if(!(TITLE.ph<30))TITLE.up=true;}
     if(TITLE.up){TITLE.ph=Math.fround(TITLE.ph-F01);if(TITLE.ph<=0)TITLE.up=false;}
-    stars(1);});
+    stars(1);text('Version 1.2',0,0,0);});
   const go=test=>waitUp(test,()=>{G.state='menu';sfx('beam');});
   if(keys.Space)go(()=>keys.Space);else if(enter())go(enter);else if(keys.Escape)go(()=>keys.Escape);}
 
 // ---------- menu (state 0, 0x420900): six entries of menu.gfx in a frame, the chosen one lit; Escape back to the title
-function menuStep(){onScr(()=>{rahmen(160,40,9,12);bf('menu',0,0,224,384,208,60);bf('menu',224,G.sel*64,448,G.sel*64+64,208,G.sel*64+60);});
+function menuStep(){onScr(()=>{text('Version 1.2',0,0,0);rahmen(160,40,9,12);bf('menu',0,0,224,384,208,60);bf('menu',224,G.sel*64,448,G.sel*64+64,208,G.sel*64+60);});
   if(!keys.ArrowUp&&!keys.ArrowDown)G.latch=false;
   stepKeys(5,true);
   if(keys.Escape){waitUp(()=>keys.Escape,()=>{G.state='title';sfx('beam');});return;}
@@ -1171,7 +1173,17 @@ function gameOverStep(){
   if(enter()){G.state='hiscore';onScr(()=>bw('title',0,0));G.go=0;G.cheater=0;G.score=0;}}
 
 // ---------- render
-function render(){
+// info mode (common tail of the main loop 0x417c96, every state): counts and memory of the shot, particle and
+// explosion lists and the active enemies; the numbers in font2.gfx (0x40e5c0), a minus sign draws nothing
+function numL(v,x,y){for(const ch of String(v)){const c=ch.charCodeAt(0)-48;if(c>=0&&c<=9)ctx.drawImage(S.font2.img,c*8,0,8,10,x,y,8,10);x+=9;}}
+function drawInfo(){const a=G.shots.length,b=PART.length,c=EXPL.length,d=G.state==='play'?G.enemies.filter(e=>!e.dead).length:0;
+  text('Scrollposition : ',0,50,7);text('Scrollspeed   : ',0,70,7);
+  [['Anzahl Shots  : ',90,7],['Anzahl Truemmer: ',110,7],['Anzahl Expl.  : ',130,7],['Anzahl Enemys : ',150,7],['LL Mem ges.  : ',170,1]].forEach(([s,y,r])=>{
+    text(s,0,y,r);text('=',165,y+2,2);text('Bytes',225,y,7);});
+  numL(Math.round(G.scroll),130,53);numL(G.speed,130,73);numL(a,130,93);numL(a*104,175,93);numL(b,130,113);numL(b*40,175,113);
+  numL(c,130,133);numL(c*56,175,133);numL(d,130,153);numL(d*124,175,153);numL(a*104+b*40+c*56+d*124,175,173);}
+function render(){if(G.blk||G.state==='boot'){renderMain();return;}renderMain();if(G.info)drawInfo();}
+function renderMain(){
   const gam=()=>{if(G.gamma<100){ctx.fillStyle='rgba(0,0,0,'+(1-G.gamma/100)+')';ctx.fillRect(0,0,W,H);}};
   if(G.blk){ctx.drawImage(G.blk.img,0,0);gam();return;}
   if(G.state==='boot'){ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);text('Klicken oder Taste druecken',W/2,232,0,1);return;}   // the browser needs a gesture for sound
