@@ -177,9 +177,10 @@ function glInit(){if(GL.ready)return true;try{const c=document.createElement('ca
   const gl=c.getContext('webgl',{alpha:true,premultipliedAlpha:false,antialias:false,preserveDrawingBuffer:true});if(!gl)return false;
   // D3D7 lights per vertex (Gouraud shading) with renormalised normals (D3DRENDERSTATE_NORMALIZENORMALS); the
   // material of the file (diffuse = ambient = faceColor, no emissive), white light, no ambient light and no specular;
-  // the texture is modulated with the vertex colour and the result lands in a 16 bit (RGB565) surface
+  // the texture is modulated with the vertex colour and the result lands in a 16 bit (RGB565) surface. D3D has its
+  // pixel centres on whole coordinates, GL half a pixel further, so the image is moved by half a pixel right and down
   const vs=`attribute vec3 p;attribute vec3 n;attribute vec2 t;uniform mat4 mdl;uniform mat4 nrm;uniform mat4 prj;varying float vd;varying vec2 vt;
-    void main(){gl_Position=prj*(mdl*vec4(p,1.0));vd=max(dot(normalize((nrm*vec4(n,0.0)).xyz),normalize(vec3(-1.0,1.0,-1.0))),0.0);vt=t;}`;
+    void main(){gl_Position=prj*(mdl*vec4(p,1.0));gl_Position.xy+=vec2(1.0/320.0,-1.0/270.0)*gl_Position.w;vd=max(dot(normalize((nrm*vec4(n,0.0)).xyz),normalize(vec3(-1.0,1.0,-1.0))),0.0);vt=t;}`;
   const fs=`precision mediump float;varying float vd;varying vec2 vt;uniform sampler2D s;uniform float useTex;uniform vec3 col;
     void main(){const vec3 Q=vec3(31.0,63.0,31.0);vec3 c=(useTex>0.5?texture2D(s,vt).rgb:vec3(1.0))*col*vd;gl_FragColor=vec4(floor(c*Q+0.01)/Q,1.0);}`;
   const sh=(ty,src)=>{const h=gl.createShader(ty);gl.shaderSource(h,src);gl.compileShader(h);if(!gl.getShaderParameter(h,gl.COMPILE_STATUS))throw gl.getShaderInfoLog(h);return h;};
