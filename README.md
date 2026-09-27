@@ -113,6 +113,14 @@ Adressen beziehen sich auf `extracted/Takatis.exe`.
 * **Pressen** (Typ 26/27, 64×256, Energie 10000) bewegen sich nur über ihr Bewegungsmuster (19–22).
 * **HUD** (`0x41c34c`): Waffenstufen als `ws.gfx`-Blöcke im Abstand von 7 px bei x=122 (Spread), 222 (Bounce),
   322 (Laser); Raketen bei x=422, Powerlines bei x=522.
+* **Gegner** (Update `0x40a260`, Init `0x40c760`): Die Init-Werte (Energie, Größe, Animation, Punkte) liest
+  `build.py` beim Bauen direkt aus der EXE. Animation mit Frame-Zähler und optionalem Hin-und-zurück (Typen 1, 15,
+  25, 28, 29, 30). Abklingzeiten starten beim Erscheinen bei 0. Angriffe hängen teils am Frame-Zähler: Aufzug (25)
+  am Ende des Vorwärtslaufs (alle 280 Frames), Bumper (30) bei Bild 1, Minenleger (24) bei Bild 4, Zeitbombe (31)
+  einmalig nach 600 Frames. Objekte 3–9 sind Greifer, die ein eigenes Item tragen (+8/+42). Typ 13 ist der Circuit,
+  16 der Magnet (Pfad 18, verfolgt das Schiff, haftet daran und bremst es auf 1 px/Frame). Faller (17) fallen nach
+  30 Frames Wackeln mit 6 px/Frame. Pfad-Zähler −2 bedeutet Verfolgung mit 2 px/Frame. Gegnerschüsse driften mit
+  (Tempo−1) nach links. Jeder Gegner außer 13, 26, 27 zerschellt, wenn sein Rechteck eine Vordergrundkachel überlappt.
 * Es gibt **keine** kachelbasierte Kollision. Die Level-Arrays werden nur von der
   Zeichenfunktion `0x42bdb0` gelesen, das Original prüft Pixel auf der DirectDraw-Surface.
 

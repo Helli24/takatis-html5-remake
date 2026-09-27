@@ -159,8 +159,6 @@ function num(str,cx,y){str=String(str);const s=S.font2;let x=Math.round(cx-str.l
     else if(ch==='-'){ctx.fillStyle='#b9b9b9';ctx.fillRect(x+2,y+4,5,2);}
     x+=9;}}
 
-// ---------- enemy table (from Takatis.exe init function): hp, score, w, h
-const ET={0:[1e9,500,64,54],1:[1,70,52,32],2:[15,120,56,46],9:[6,100,36,46],10:[25,140,44,41],11:[25,140,44,41],12:[15,120,43,54],13:[1e9,2000,32,32],14:[100,300,80,47],15:[15,200,49,34],16:[70,250,32,32],17:[50,500,32,64],18:[1,10,16,16],19:[1,10,16,16],20:[1,10,16,16],21:[1,10,16,16],22:[1e9,2000,71,17],23:[1e9,2000,71,64],24:[50,180,84,47],25:[20,100,56,68],26:[1e9,2000,64,256],27:[1e9,2000,64,256],28:[120,600,72,72],29:[1e9,2000,80,36],30:[40,400,40,40],31:[75,500,48,48],32:[60,600,32,32],33:[60,300,36,61]};
 const ITEMS=['spread','laser','bounce','rocket','line','shield','oneup'];
 // which weapon stage a primary-weapon container grants, per level index (from the original code)
 const STAGE_TABLE=[{0:2,5:3,9:4},{1:1,3:2,6:3,11:4},{2:1,4:2,8:3,10:4}];
@@ -174,11 +172,25 @@ function panel(x,y,w,h){ctx.fillStyle='rgba(46,32,18,.95)';ctx.fillRect(x,y,w,h)
   ctx.strokeStyle='#7d6134';ctx.lineWidth=3;ctx.strokeRect(x+1.5,y+1.5,w-3,h-3);
   ctx.strokeStyle='#3a2a14';ctx.lineWidth=1;ctx.strokeRect(x+5.5,y+5.5,w-11,h-11);}
 const ITEM_FRAME={spread:0,laser:1,bounce:2,rocket:3,line:4,shield:5,oneup:6};   // powerups.gfx
-const WALL_DIE=new Set([0,1,2,9,15,24,33]);
-// [frame count, frame delay] per enemy type - from Takatis.exe enemy init (+0x3c, +0x44)
-const ANIM={0:[32,5],1:[5,9],2:[16,7],9:[1,1],10:[3,10],11:[3,10],12:[8,10],13:[4,6],14:[4,10],15:[5,12],16:[8,7],17:[1,1],
-  18:[1,1],19:[1,1],20:[1,1],21:[1,1],22:[9,10],23:[4,10],24:[4,16],25:[18,8],26:[1,1],27:[1,1],28:[6,7],29:[3,10],30:[5,15],31:[10,60],32:[5,8],33:[1,1]};
-function animFrame(e){const a=ANIM[e.type];if(!a)return Math.floor(e.t/6);return Math.floor(e.t/a[1])%a[0];}   // free flyers; turrets, walkers, presses etc. are mounted on the terrain
+// ---------- enemies: init values are read from Takatis.exe at build time (0x40c760, see build.py)
+const EI=DATA.enemyInit;
+// animation stepping as in the enemy update (0x40b7a4): frame tick, sheet column/row, frame counter 1..frames,
+// optional ping-pong. Frame counter and direction drive several attacks.
+function animStep(e){const d=EI[e.type],A=e.an;if(++A.tick!==d.delay)return;
+  if(e.type===16||e.cnt===-2)return;   // magnet and chasers pick their frame from the direction instead
+  if(e.type===10||e.type===11){turretStep(e,d);return;}
+  if(!(d.pp&&A.dir)){if(++A.col===d.cols){A.col=0;A.row++;}
+    if(A.cnt===d.frames){if(d.pp){A.col=d.cols-1;A.row--;}else{A.col=0;A.row=0;}A.cnt=0;A.dir=1;}
+    A.tick=0;A.cnt++;}
+  if(d.pp&&A.dir){if(--A.col===-1){A.col=d.cols-1;A.row--;}if(A.cnt===d.frames){A.col=0;A.row=0;A.cnt=0;A.dir=0;}A.tick=0;A.cnt++;}
+  e.f=A.row*d.cols+A.col;}
+const lastTick=(e,cnt)=>e.an.cnt===cnt&&e.an.tick===EI[e.type].delay-1;
+// turrets (0x40b808): aim column from the ship position, fire every 90/70/40 frames by difficulty
+function turretStep(e,d){const A=e.an;A.col=1;if(P.x+50<e.x)A.col=0;if(P.x>e.x+45)A.col=2;e.f=A.col;
+  const T=e.type===10?[[-7,-2,-4,-3],[18,-6,-1,-3],[43,-2,3,-3]]:[[-7,36,-4,3],[18,38,-1,3],[43,36,3,3]];
+  if(e.tc===[90,70,40][G.diff]){const q=T[A.col];eshot(e.x+q[0],e.y+q[1],q[2],q[3],'bullet');sfx('bigshot',0.25);e.tc=0;}
+  e.tc++;A.tick=d.delay-1;}
+function burst(x,y,n,spread,life){for(let k=0;k<n;k++)G.fx.push({spr:'blob',x:x+Math.floor(Math.random()*spread*2)-spread,y:y+Math.floor(Math.random()*spread*2)-spread,vx:0,vy:0,f:0,rate:5,n:6});}
 
 // ---------- game state
 window.G=window.G||{};const G={state:'menu',level:0,scroll:0,speed:1,maxScroll:0,next:0,lives:5,score:0,diff:0,info:false,t:0,frame:0,
@@ -199,6 +211,9 @@ function startLevel(i,fromScroll=0){G.level=i;const l=level();G.scroll=fromScrol
 
 // tile collision (screen coords in playfield space)
 function solidAt(sx,sy){const l=level();if(sy<0||sy>=PH)return true;const lx=Math.floor((sx+G.scroll)/32);if(lx<0||lx>=l.wb)return false;return l.B[Math.floor(sy/32)*l.wb+lx]!==0;}
+// strict overlap of a box with non-empty foreground tiles; nothing counts outside the 13 tile rows
+function boxInTiles(x,y,w,h){const l=level(),c0=Math.floor((x+G.scroll)/32),c1=Math.floor((x+w-1+G.scroll)/32),r0=Math.max(0,Math.floor(y/32)),r1=Math.min(12,Math.floor((y+h-1)/32));
+  for(let r=r0;r<=r1;r++)for(let c=Math.max(0,c0);c<=Math.min(l.wb-1,c1);c++)if(l.B[r*l.wb+c])return true;return false;}
 function boxSolid(x,y,w,h){for(let yy=y;yy<=y+h;yy+=Math.min(16,h))for(let xx=x;xx<=x+w;xx+=Math.min(16,w))if(solidAt(xx,yy))return true;return solidAt(x+w,y+h);}
 function hit(a,b){return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;}
 
@@ -208,28 +223,24 @@ function spawn(o){const [type,x,y0,param,flag]=o;const y=y0-PY;if(flag>G.diff)re
   // speed triggers 34..38 = scroll speed 1..5 (0x40b326); they act the moment they reach the right screen edge,
   // with sound and sparks at the ship only if the speed actually changes. The level end is the scroll position.
   if(type>=34&&type<=38){if(G.speed!==type-33){G.speed=type-33;sfx('trigger',0.6);sparks(P.x-30,P.y-20);}return;}
-  if(type>=3&&type<=8){const kind=['spread','laser','bounce','rocket','line','shield'][type-3];
-    let stage=0;if(type<=5){stage=STAGE_TABLE[type-3][G.level]||0;}
-    const empty=type<=5&&(!stage||P.lvl[type-3]>=stage); // primary container: fixed stage per level, empty if already owned
-    const c={type:9,x:sx,y,param,hp:6,score:100,w:36,h:46,t:0,f:0,vx:0,vy:0,y0:y,x0:sx,shoot:1e9,spr:'e9',dir:1,item:empty?null:kind,stage};setPath(c,param);G.enemies.push(c);return;}
-  const tb=ET[type]||[10,100,32,32];
-  const e={type,x:sx,y,param,hp:tb[0],score:tb[1],w:tb[2],h:tb[3],t:0,f:0,vx:0,vy:0,y0:y,x0:sx,shoot:60+Math.random()*60,spr:S['e'+type]?'e'+type:null,dir:1};
-  setPath(e,param);
-  switch(type){
-    case 0:e.rot=(param%2?1:-1)*(0.15+Math.random()*.2);break;
-    case 25:if(e.staticPath)e.vy=1;break;
-    case 28:if(e.staticPath){e.vx=-2;e.vy=1.5;}break;
-    case 30:if(e.staticPath)e.vy=1.5;break;
-    case 17:e.armed=false;break;
-    case 31:e.fuse=600;break;
-  }
-  if(type===9||type===33)e.item=ITEMS[3+(param%4)];
-  G.enemies.push(e);}
+  const d=EI[type];if(!d)return;
+  const e={type,x:sx,y,param,hp:d.hp,hp0:d.hp,score:d.pts,w:d.w,h:d.h,t:0,f:0,cd:0,tc:0,an:{col:0,row:0,cnt:1,dir:0,tick:0},
+    spr:type>=3&&type<=9?'e9':S['e'+type]?'e'+type:null};
+  setPath(e,param);G.enemies.push(e);
+  // objects 3..9 are claws carrying spread, laser, bounce, rocket, powerline, shield, 1up (0x40a3ac). A primary weapon
+  // item is left out when the ship already has the stage that this level hands out.
+  if(type>=3&&type<=9){const cap=type<=5?STAGE_TABLE[type-3][G.level]:0;
+    if(!(cap&&P.lvl[type-3]===cap))G.items.push({kind:ITEMS[type-3],x:e.x+8,y:e.y+42,w:20,h:20,t:0,carrier:e});}}
 
 // ---------- movement patterns (original table: (dx,dy,count) segments; dx relative to the level)
 function setPath(e,param){const p=PATHS[param]||PATHS[0];e.path=p;e.seg=0;e.dx=p[0][0];e.dy=p[0][1];e.cnt=p[0][2];e.staticPath=p.length===1&&p[0][0]===0&&p[0][1]===0;}
-function stepPath(e){e.x+=e.dx-G.speed;e.y+=e.dy;
-  if(e.cnt===-1||e.cnt===-2)return;
+function stepPath(e){
+  if(e.cnt===-2){let sx=0,sy=0;const tx=P.x,ty=P.y;   // chase the ship with 2 px per frame, frame = one of 8 directions
+    if(Math.abs(e.x-tx)===1)e.x=tx;if(Math.abs(e.y-ty)===1)e.y=ty;
+    if(e.y<ty){e.y+=2;sy=1;}if(e.y>ty){e.y-=2;sy=-1;}if(e.x<tx){e.x+=2;sx=1;}if(e.x>tx){e.x-=2;sx=-1;}
+    const D={'-1,0':6,'1,0':2,'0,-1':0,'0,1':4,'-1,-1':7,'-1,1':5,'1,-1':1,'1,1':3}[sx+','+sy];if(D!==undefined){e.an.col=D;e.f=D;}return;}
+  e.x+=e.dx-G.speed;e.y+=e.dy;
+  if(e.cnt===-1)return;
   if(--e.cnt>0)return;
   e.seg++;let s=e.path[e.seg];
   if(!s||s[2]===-3){e.seg=0;s=e.path[0];}
@@ -312,8 +323,12 @@ function pickup(kind){
 function hurtPlayer(amount){if(P.dead||G.state!=='play')return;P.energy-=amount;if(P.energy<0)killPlayer();else sfx('hit',0.5);}
 function killPlayer(){if(P.dead)return;P.dead=400;explode(P.x+24,P.y+17,true,true);for(let i=0;i<3;i++)G.fx.push({spr:'debris'+(1+i),x:P.x+16+i*8,y:P.y+8,vx:(Math.random()-.5)*4,vy:-2-Math.random()*3,f:0,rate:6,n:16,grav:true,life:70});}
 function enemyDie(e,byShot){G.score+=e.score*(byShot?5:1);   // shot kills add the points once per explosion step (5x)
-  explode(e.x+e.w/2,e.y+e.h/2,e.w>=48);if(e.item)G.items.push({kind:e.item,x:e.x+8,y:e.y+10,w:20,h:20,t:0});
-  if(byShot&&!e.item&&e.type!==9&&!(e.type>=18&&e.type<=21)){const r=Math.floor(Math.random()*3500);
+  explode(e.x+e.w/2,e.y+e.h/2,e.w>=48);if(!byShot)return;
+  const drop=(k,x,y)=>G.items.push({kind:k,x,y,w:20,h:20,t:0});
+  if(e.type===6){drop('rocket',e.x+10,e.y+10);drop('rocket',e.x-10,e.y+25);drop('rocket',e.x+30,e.y+25);}   // extra load of the claws
+  if(e.type===7)drop('line',e.x+10,e.y+10);
+  if(e.type===28)for(let k=0;k<5;k++)for(const [v,s] of [[[-3,-3],'spike1'],[[3,3],'spike1'],[[3,-3],'spike2'],[[-3,3],'spike2']])eshot(e.x+28,e.y+28,v[0],v[1],s);
+  if(!(e.type>=3&&e.type<=9)&&!(e.type>=18&&e.type<=21)){const r=Math.floor(Math.random()*3500);
     const k=r<=20?'shield':r<=100?'rocket':r<=140?'line':null;if(k)G.items.push({kind:k,x:e.x,y:e.y,w:20,h:20,t:0});}}
 function damageEnemy(e,dmg,sx,sy){if(e.trigger)return false;if(e.hp>=1e9){puff(sx,sy);sfx('hit',0.3);return true;}e.hp-=dmg;e.flash=4;if(e.hp<=0){enemyDie(e,true);e.dead=true;}else{puff(sx,sy);sfx('hit',0.3);}return true;}
 
@@ -328,8 +343,8 @@ function updatePlayer(){
   const u=K.up(),d=K.down(),l=K.left(),r=K.right();
   if(!u&&!d)P.bank-=Math.sign(P.bank);
   if((u&&d)||(l&&r))P.bank-=Math.sign(P.bank);   // opposite keys cancel all movement
-  else{if(u){P.bank=Math.min(10,P.bank+1);P.y=Math.max(1,P.y-3);}if(d){P.bank=Math.max(-10,P.bank-1);P.y=Math.min(382,P.y+3);}
-    if(l)P.x=Math.max(0,P.x-3);if(r)P.x=Math.min(591,P.x+3);}
+  else{const v=P.spd||3;if(u){P.bank=Math.min(10,P.bank+1);P.y=Math.max(1,P.y-v);}if(d){P.bank=Math.max(-10,P.bank-1);P.y=Math.min(382,P.y+v);}
+    if(l)P.x=Math.max(0,P.x-v);if(r)P.x=Math.min(591,P.x+v);}
   // walls
   if(boxSolid(P.x+8,P.y+9,P.w-16,P.h-18))killPlayer();
   // weapons
@@ -375,7 +390,7 @@ function updateShots(){
     if(L.x>W||!L.segs.some(s=>s.alive))L.dead=true;}
   G.lines=G.lines.filter(l=>!l.dead);
   // enemy shots: the player box is the full 49x31 ship rectangle; the shield absorbs them
-  for(const s of G.eshots){s.x+=s.vx-(s.world?G.speed:0);s.y+=s.vy;if(s.grav)s.vy+=0.12;s.f++;if(s.x<-20||s.x>W+20||s.y<-20||s.y>PH+20||(!s.ghost&&solidAt(s.x+s.w/2,s.y+s.h/2)))s.dead=true;
+  for(const s of G.eshots){s.x+=s.vx-(G.speed-1);s.y+=s.vy;if(s.grav&&s.f%16===15)s.vy+=1;s.f++;if(s.x<-20||s.x>W+20||s.y<-20||s.y>PH+20||(!s.ghost&&solidAt(s.x+s.w/2,s.y+s.h/2)))s.dead=true;
     if(!s.dead&&!P.dead&&hit(s,{x:P.x,y:P.y,w:49,h:31})){s.dead=true;if(P.shield<=0)hurtPlayer(1);}}
   G.eshots=G.eshots.filter(s=>!s.dead);
 }
@@ -383,46 +398,39 @@ function eshot(x,y,vx,vy,spr,opt={}){const s=S[spr];G.eshots.push({x,y,w:s.fw,h:
 function shootAt(e,speed=3,spr='bullet',size=8){const cx=e.x+e.w/2,cy=e.y+e.h/2;const ang=Math.atan2(P.y+17-cy,P.x+24-cx);G.eshots.push({x:cx-size/2,y:cy-size/2,w:size,h:size,vx:Math.cos(ang)*speed,vy:Math.sin(ang)*speed,spr,f:0});}
 function updateEnemies(){const l=level();
   while(G.next<l.objects.length&&l.objects[G.next][1]<=G.scroll+W){spawn(l.objects[G.next]);G.next++;}
+  P.spd=3;G.shake=0;   // the draw code resets the ship speed every frame; an attached magnet sets it to 1 (0x42c065, 0x40a610)
   for(const e of G.enemies){e.t++;if(e.flash)e.flash--;
+    if(e.type===17){   // faller (0x40a6bb): waits until the ship's nose passes, shakes for 30 frames, then drops at 6 px per frame
+      if(e.dy!==6)e.dy=0;if(P.x+49>e.x&&e.dy!==6&&!e.arm)e.arm=1;
+      if(e.arm&&e.dy!==6){e.arm++;G.shake=Math.floor(Math.random()*6)-3;}if(e.arm===30)e.dy=6;}
+    if(e.type===16&&e.att)P.spd=1;
     stepPath(e);
-    const cx=e.x+e.w/2,cy=e.y+e.h/2,dist=Math.abs(cx-(P.x+24));
-    switch(e.type){
-      case 0:e.f+=e.rot;break;
-      case 1:e.f=animFrame(e);break;
-      case 2:e.f=animFrame(e);if(e.shoot>0)e.shoot--;
-        if(e.f===1&&e.shoot<=0&&e.x<W&&(Math.random()*11|0)===1){eshot(e.x,e.y+3,-5,0,'blob');eshot(e.x,e.y+33,-5,0,'blob');sfx('laser',0.3);e.shoot=10;}break;
-      case 15:e.f=animFrame(e);if(--e.shoot<=0&&e.x<W){eshot(e.x-15,e.y+7,-4,0,'chaseshot');sfx('laser',0.3);e.shoot=150;}break;
-      case 24:e.f=animFrame(e);if(e.t%(S.e24.frames*5)===S.e24.frames*5-1&&e.x<W){eshot(e.x+60,e.y,-1,0,'mine',{world:true});}break;
-      case 10:case 11:{let dir=1;if(P.x+50<e.x)dir=0;if(P.x>e.x+45)dir=2;e.f=dir;
-        const T=e.type===10?[[-7,-2,-4,-3],[18,-6,-1,-3],[43,-2,3,-3]]:[[-7,36,-4,3],[18,38,-1,3],[43,36,3,3]];
-        e.tt=(e.tt||0)+1;if(e.tt>=[90,70,40][G.diff]&&e.x<W&&e.x>-44){const q=T[dir];eshot(e.x+q[0],e.y+q[1],q[2],q[3],'bullet');sfx('laser2',0.25);e.tt=0;}break;}
-      case 12:e.f=animFrame(e);if(--e.shoot<=0&&e.x<W){eshot(e.x-4,e.y-12,-4,-3,'walkershot');sfx('laser2',0.3);e.shoot=70;}break;
-      case 13:e.f=animFrame(e);break;
-      case 14:e.f=animFrame(e);if(--e.shoot<=0&&e.x<W){for(let k=0;k<3;k++)eshot(e.x-8,e.y+29,-4,[0,-2,2][k],'bullspread',{frame:k});sfx('bigshot',0.4);e.shoot=200;}break;
-      case 16:e.f=animFrame(e);if(dist<260&&!P.dead){P.x+=Math.sign(cx-(P.x+24))*0.9;P.y+=Math.sign(cy-(P.y+17))*0.5;}break;
-      case 17:if(!e.armed&&Math.abs(cx-(P.x+24))<120)e.armed=true;if(e.armed){e.vy=Math.min(8,e.vy+0.35);e.y+=e.vy;if(solidAt(cx,e.y+e.h+1)||e.y>PH){explode(cx,cy,true);e.dead=true;}}break;
-      case 25:e.y+=e.vy;if(solidAt(cx,e.y+e.h+2)||solidAt(cx,e.y-2)||e.y<0||e.y+e.h>PH)e.vy=-e.vy;e.f=Math.floor(e.t/8)%9+(e.vy>0?0:9);if(--e.shoot<=0&&e.x<W){eshot(e.x,e.y+27,-6,0,'elevatorshot');for(let k=0;k<5;k++)G.fx.push({spr:'blob',x:e.x+Math.random()*20-10,y:e.y+20+Math.random()*20-10,vx:-1,vy:0,f:0,rate:5,n:6});sfx('laser',0.3);e.shoot=110;}break;
-      case 26:case 27:break;   // presses move only by their path (patterns 19-22: 1-2 px per frame)
-      case 28:if(!e.staticPath){e.f=animFrame(e);break;}e.x+=e.vx;e.y+=e.vy;if(solidAt(cx,e.y-1)||solidAt(cx,e.y+e.h+1)||e.y<0||e.y+e.h>PH){e.vy=-e.vy;e.y+=e.vy*2;}if(solidAt(e.x-1,cy)||solidAt(e.x+e.w+1,cy)){e.vx=-e.vx;e.x+=e.vx*2;}e.f=Math.floor(e.t/4);break;
-      case 29:e.f=animFrame(e);if(e.x<W&&e.x>-80&&--e.shoot<=0){eshot(e.x+24,e.y-15,Math.floor(Math.random()*8)-4,-Math.floor(Math.random()*6),'volcanoball',{grav:true,ghost:true});sfx('laser2',0.3);e.shoot=50;}break;
-      case 30:e.y+=e.vy;if(solidAt(cx,e.y-1)||solidAt(cx,e.y+e.h+1)||e.y<0||e.y+e.h>PH)e.vy=-e.vy;e.f=animFrame(e);
-        if(--e.shoot<=0&&e.x<W){for(const q of [[16,-7,-1,-2],[-5,16,-3,0],[16,37,-1,2],[40,16,1,0],[0,0,-2,-1],[28,0,0,-1],[0,33,-2,1],[28,33,0,1]])eshot(e.x+q[0],e.y+q[1],q[2],q[3],'bullet');sfx('shield',0.3);e.shoot=120;}break;
-      case 31:e.fuse--;e.f=9-Math.floor(e.fuse/60);if(e.fuse<=0){for(let yy=0;yy<PH;yy+=32)eshot(e.x+50,yy,7,0,'powerline',{ghost:true});sfx('powerline',0.6);explode(cx,cy,true);e.dead=true;}break;
-      case 32:e.f=animFrame(e);if(--e.shoot<=0&&e.x<W){const pick=()=>[-4,-3,3][Math.floor(Math.random()*3)];eshot(e.x+10,e.y+10,pick(),pick(),'blob');sfx('laser2',0.3);e.shoot=50;}break;
-      case 9:e.f=0;break;
-      case 33:e.f=0;if(P.x+49>e.x-70&&P.x<e.x+106&&P.y<e.y+131&&P.y+34>e.y-70){for(let k=0;k<60;k++)G.fx.push({spr:'blob',x:e.x+Math.random()*100-50,y:e.y+20+Math.random()*100-50,vx:(Math.random()-.5)*2,vy:(Math.random()-.5)*2,f:0,rate:6,n:6});
-        sfx('morph',0.7);Object.assign(e,{type:28,hp:120,score:500,w:72,h:72,x:e.x-10,y:e.y-10,spr:'e28',item:null,t:0});setPath(e,e.param);if(e.staticPath){e.vx=-2;e.vy=1.5;}}break;
-      case 22:e.f=animFrame(e);break;case 23:e.f=animFrame(e);break;
-      default:e.f=animFrame(e);
+    const cx=e.x+e.w/2,cy=e.y+e.h/2,A=e.an;
+    switch(e.type){   // attacks from the enemy update 0x40a260; cooldowns start at 0 when the enemy appears
+      case 2:if(A.cnt===1&&e.cd<=0&&Math.floor(Math.random()*11)===1){eshot(e.x,e.y+3,-5,0,'blob');eshot(e.x,e.y+33,-5,0,'blob');sfx('laser',0.3);e.cd=10;}break;
+      case 12:if(e.cd<=0){eshot(e.x-4,e.y-12,-4,-3,'walkershot');sfx('bounce',0.3);e.cd=70;}break;
+      case 14:if(e.cd<=0){eshot(e.x-8,e.y+29,-5,0,'bullspread',{frame:0});eshot(e.x-8,e.y+29,-4,-2,'bullspread',{frame:1});eshot(e.x-8,e.y+29,-4,2,'bullspread',{frame:2});sfx('spread',0.4);e.cd=200;}break;
+      case 24:if(lastTick(e,4))eshot(e.x+60,e.y,-1,0,'mine');break;
+      case 15:if(e.cd<=0){eshot(e.x-15,e.y+7,-4,0,'chaseshot');sfx('laser',0.3);e.cd=150;}break;
+      case 25:if(lastTick(e,18)&&!A.dir){eshot(e.x,e.y+27,-6,0,'elevatorshot');burst(e.x,e.y+20,5,10);sfx('laser',0.3);}break;
+      case 30:if(lastTick(e,1)&&!A.dir){for(const q of [[16,-7,-1,-2],[-5,16,-3,0],[16,37,-1,2],[40,16,1,0],[0,0,-2,-1],[28,0,0,-1],[0,33,-2,1],[28,33,0,1]])eshot(e.x+q[0],e.y+q[1],q[2],q[3],'bullet');sfx('bigshot',0.3);}break;
+      case 32:if(e.cd<=0){const pick=()=>{let v=0;while(v<3&&v>-3)v=Math.floor(Math.random()*8)-4;return v;};const vx=pick(),vy=pick();eshot(e.x+10,e.y+10,vx,vy,'blob');sfx('bounce',0.3);e.cd=50;}break;
+      case 33:if(P.x+49>e.x-70&&P.x<e.x+106&&P.y<e.y+131&&P.y+34>e.y-70){   // the fake claw turns into a spike ball (0x40afa0)
+        burst(e.x,e.y+20,80,50);sfx('morph',0.7);
+        Object.assign(e,{type:28,hp:120,hp0:120,score:500,w:72,h:72,x:e.x-10,y:e.y-10,spr:'e28',an:{col:0,row:0,cnt:1,dir:0,tick:0}});}break;
+      case 31:if(lastTick(e,10)&&!A.dir){for(let yy=0;yy<PH;yy+=32)eshot(e.x+50,yy,7,0,'powerline');sfx('powerline',0.6);}break;   // fires once
+      case 29:if(e.cd===0){const vx=Math.floor(Math.random()*8)-4;let vy=0;while(vy>-1)vy=-Math.floor(Math.random()*6);eshot(e.x+24,e.y-15,vx,vy,'volcanoball',{grav:true});sfx('bounce',0.3);e.cd=50;}break;
     }
-    if(e.hp<1e9&&e.hp<=ET[e.type][0]/2&&(Math.random()*7|0)===3)G.fx.push({spr:'smoke',x:cx-8,y:cy-8,vx:-0.6,vy:-0.7,f:0,rate:2,n:16});
-    if(WALL_DIE.has(e.type)&&e.x+e.w<W&&(e.dx||e.dy)&&solidAt(cx,cy)){explode(cx,cy,e.w>=48);e.dead=true;continue;}   // smashed against the level
-    if(e.x<-e.w-700||e.x>W+700||e.y<-300||e.y>780)e.dead=true;
+    e.cd--;
+    if(e.hp<=e.hp0/2&&Math.floor(Math.random()*7)===3)G.fx.push({spr:'smoke',x:cx-8,y:cy-8,vx:-0.6,vy:-0.7,f:0,rate:2,n:16});
+    animStep(e);
+    // every enemy except circuits and presses is destroyed when it overlaps a foreground tile (0x42ca80)
+    if(e.type!==13&&e.type!==26&&e.type!==27&&boxInTiles(e.x,e.y,e.w,e.h)){explode(cx,cy,e.w>=48);e.dead=true;continue;}
+    if(e.x<-e.w||e.y<-300-PY||e.y>780-PY)e.dead=true;   // off the left edge or far above/below (0x40b5f0)
     if(e.dead||P.dead)continue;
     const eb={x:e.x,y:e.y+(e.off||0),w:e.w,h:e.h};const pb={x:P.x+10,y:P.y+8,w:P.w-20,h:P.h-16};
     if(hit(eb,pb)){
-      if(e.type===9){if(e.item)pickup(e.item,e.stage,false);else sfx('hit',0.3);e.dead=true;continue;}
-      if(e.type===33){explode(cx,cy,true);e.dead=true;hurtPlayer(2);continue;}
+      if(e.type===16){e.x=P.x+30;e.y=P.y;e.att=true;continue;}   // the magnet sticks to the ship (0x40bc3f)
       // ramming (0x40bb61): costs 2 energy and removes the enemy; with the shield only 26/27/39 still kill.
       // Enemies overlapping the left screen edge kill outright without the shield.
       if(e.x<0){if(P.shield<=0)killPlayer();else if(e.type===26||e.type===27)hurtPlayer(2);continue;}
@@ -432,7 +440,7 @@ function updateEnemies(){const l=level();
     }
   }
   G.enemies=G.enemies.filter(e=>!e.dead);
-  for(const it of G.items){it.t++;it.x-=G.speed;
+  for(const it of G.items){it.t++;if(it.carrier&&!it.carrier.dead){it.x=it.carrier.x+8;it.y=it.carrier.y+42;}else it.x-=G.speed;
     if(it.x<-30)it.dead=true;if(!P.dead&&hit(it,{x:P.x,y:P.y,w:49,h:31})){pickup(it.kind);it.dead=true;}}
   G.items=G.items.filter(i=>!i.dead);
   for(const f of G.fx){f.f+=1/f.rate;if(f.vx!==undefined){f.x+=f.vx;f.y+=f.vy;if(f.grav)f.vy+=0.15;}if(f.life!==undefined){if(--f.life<=0)f.dead=true;}else if(f.f>=f.n)f.dead=true;}
@@ -457,8 +465,8 @@ function drawPlayfield(){const l=level(),th=T[l.theme];
   // behind-player things
   for(const it of G.items)frame(ITEM_SPR[it.kind],0,it.x,it.y);
   for(const e of G.enemies){if(e.trigger){if(G.info){ctx.fillStyle=e.end?'#ff5c5c':'#5ad0f0';ctx.fillRect(e.x,e.y,16,16);}continue;}
-    if(!e.spr)continue;if(e.flash&&e.flash%2){ctx.globalAlpha=0.5;}frame(e.spr,e.f,e.x,e.y+(e.off||0),e.dir<0);ctx.globalAlpha=1;
-    if(e.type===9&&e.item)frame('powerups',ITEM_FRAME[e.item],e.x+11,e.y+41);}   // the claw carries its powerup visibly
+    if(!e.spr)continue;if(e.flash&&e.flash%2){ctx.globalAlpha=0.5;}frame(e.spr,e.f,e.x+(e.type===17?G.shake:0),e.y+(e.off||0),e.dir<0);ctx.globalAlpha=1;
+}
   drawLayer(l.B,l.wb,th.tsa,Math.floor(G.scroll));
   for(const L of G.lines)for(const sg of L.segs)if(sg.alive)frame('powerline',Math.floor(L.t/3),L.x,sg.y);
   for(const s of G.shots){if(s.kind==='rocket'){frame('rocket',s.fr,s.x,s.y);}else frame(s.kind,s.fixed!==undefined?s.fixed:Math.floor(s.f/(s.anim?4:2)),s.x,s.y);}

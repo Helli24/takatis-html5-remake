@@ -65,8 +65,8 @@ SPRITES = {
     'endscreen': ('Endscreen', 640, 480), 'menu': ('menu', 224, 64), 'rahmen': ('rahmen', 32, 32), 'loading': ('loading', 280, 146),
     # enemies by type
     'e0': ('asteroid', 64, 54), 'e1': ('Razorback', 52, 32), 'e2': ('spinner', 56, 46), 'e9': ('container', 36, 46),
-    'e10': ('turret-floor', 44, 41), 'e11': ('turret-ceiling', 44, 41), 'e12': ('walker', 43, 54), 'e13': ('magnet', 32, 32),
-    'e14': ('bulldozer', 80, 47), 'e15': ('VoltCare', 49, 34), 'e16': ('circuit', 32, 32), 'e17': ('faller', 32, 64),
+    'e10': ('turret-floor', 44, 41), 'e11': ('turret-ceiling', 44, 41), 'e12': ('walker', 43, 54), 'e13': ('circuit', 32, 32),
+    'e14': ('bulldozer', 80, 47), 'e15': ('VoltCare', 49, 34), 'e16': ('magnet', 32, 32), 'e17': ('faller', 32, 64),
     'e18': ('block1', 16, 16), 'e19': ('block2', 16, 16), 'e20': ('block3', 16, 16), 'e21': ('block4', 16, 16),
     'e22': ('arnold', 71, 17), 'e23': ('Kraftfeld', 71, 64), 'e24': ('x6502', 84, 47), 'e25': ('elevator', 56, 68),
     'e26': ('presse1', 64, 256), 'e27': ('presse2', 64, 256), 'e28': ('spikeball', 72, 72), 'e29': ('volcano', 80, 36),
@@ -129,6 +129,29 @@ for e in range(64):
             break
     paths.append(segs)
 data['paths'] = paths
+
+# enemy init function 0x40c760: per type a block "cmp [ebp+8], type" followed by constant stores into the enemy
+# record. +0x20 energy, +0x18/+0x1c size, +0x3c frames, +0x44 frame delay, +0x48 sheet columns,
+# +0x38 ping-pong animation, +0x64 points.
+import capstone
+_md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_32)
+_md.detail = True
+_FIELDS = {0x20: 'hp', 0x18: 'w', 0x1c: 'h', 0x3c: 'frames', 0x44: 'delay', 0x48: 'cols', 0x38: 'pp', 0x64: 'pts'}
+_code = _img[0x40c760 - _pe.OPTIONAL_HEADER.ImageBase:0x40d860 - _pe.OPTIONAL_HEADER.ImageBase]
+enemies, cur = {}, None
+for ins in _md.disasm(_code, 0x40c760):
+    ops = ins.operands
+    if ins.mnemonic == 'cmp' and len(ops) == 2 and ops[0].type == capstone.x86.X86_OP_MEM \
+            and ops[0].mem.base == capstone.x86.X86_REG_EBP and ops[0].mem.disp == 8 and ops[1].type == capstone.x86.X86_OP_IMM:
+        cur = ops[1].imm
+        enemies.setdefault(cur, {})
+    elif ins.mnemonic == 'mov' and cur is not None and len(ops) == 2 and ops[0].type == capstone.x86.X86_OP_MEM \
+            and ops[1].type == capstone.x86.X86_OP_IMM and ops[0].mem.disp in _FIELDS and ops[0].mem.base != capstone.x86.X86_REG_EBP:
+        enemies[cur][_FIELDS[ops[0].mem.disp]] = ops[1].imm
+# the container block covers types 3..9 ("cmp 3 / cmp 9" range check)
+for t_ in range(3, 9):
+    enemies[t_] = dict(enemies[9])
+data['enemyInit'] = {k: v for k, v in enemies.items() if 'hp' in v}
 
 # 3D bosses: DirectX .x meshes -> flat arrays, skins are plain (unscrambled) BMPs
 from xfile import parse_x, transform, triangulate, vertex_normals
