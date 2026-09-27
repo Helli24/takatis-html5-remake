@@ -54,6 +54,7 @@ SPRITES = {
     'explosion': ('explosion', 60, 50), 'explosion2': ('explosion2', 48, 48), 'smallexpl': ('small_explosion', 16, 16),
     'smoke': ('smoke', 16, 16), 'lasersmoke': ('lasersmoke', 16, 16), 'shieldflare': ('shieldflare', 16, 16),
     'debris1': ('debris1', 16, 16), 'debris2': ('debris2', 16, 16), 'debris3': ('Debris3', 16, 16),
+    'debris4': ('Debris4', 16, 16), 'debris5': ('debris5', 16, 16),
     'bullet': ('turret-bullet', 8, 8), 'walkershot': ('walkershot', 24, 24), 'bullspread': ('bullspread', 18, 13), 'chaseshot': ('chaseshot', 32, 14),
     'elevatorshot': ('elevatorshot', 32, 8), 'volcanoball': ('volcanoball', 16, 16), 'mine': ('mine', 24, 24), 'spike1': ('spike1', 16, 17), 'spike2': ('spike2', 16, 17),
     'shield': ('shield', 56, 34), 'powerups': ('powerups', 20, 20), 'star': ('star', 72, 72), 'blob': ('blob1', 12, 12),
@@ -152,6 +153,26 @@ for ins in _md.disasm(_code, 0x40c760):
 for t_ in range(3, 9):
     enemies[t_] = dict(enemies[9])
 data['enemyInit'] = {k: v for k, v in enemies.items() if 'hp' in v}
+
+# stage intro (0x416301): per level three centered lines "y, text, colour row" (text function 0x40e540)
+def _cstr(a):
+    o = a - _pe.OPTIONAL_HEADER.ImageBase
+    return _img[o:_img.index(b'\0', o)].decode('latin-1')
+data['intro'] = [[] for _ in range(12)]
+_lvl, _push = None, []
+for ins in _md.disasm(_img[0x4163ea - _pe.OPTIONAL_HEADER.ImageBase:0x416a12 - _pe.OPTIONAL_HEADER.ImageBase], 0x4163ea):
+    ops = ins.operands
+    if ins.mnemonic == 'cmp' and len(ops) == 2 and ops[0].type == capstone.x86.X86_OP_MEM and ops[0].mem.disp == 0x495154:
+        _lvl = ops[1].imm
+    elif ins.mnemonic == 'push' and ops[0].type == capstone.x86.X86_OP_IMM:
+        _push.append(ops[0].imm)
+    elif ins.mnemonic == 'call':
+        if ops[0].type == capstone.x86.X86_OP_IMM and ops[0].imm == 0x401217:
+            data['intro'][_lvl].append([_push[-1], _cstr(_push[-2]), _push[-3]])
+        _push = []
+assert all(len(x) == 3 for x in data['intro'])
+# proportional font (0x40e2a0, width 0x40e0e0): advance = width[c]+1, a space adds 10
+data['fontW'] = list(struct.unpack('<128i', _img[0x484820 - _pe.OPTIONAL_HEADER.ImageBase:0x484a20 - _pe.OPTIONAL_HEADER.ImageBase]))
 
 # 3D bosses: DirectX .x meshes as triangle lists in object space (per corner: position, normal, uv). The game scales
 # the vertices (CD3DFile::Scale) and applies the frame matrix and the world matrix at render time.
