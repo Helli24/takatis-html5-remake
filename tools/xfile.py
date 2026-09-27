@@ -54,9 +54,29 @@ def parse_x(path):
             mm = uvm.match(txt, q)
             uvs.append((float(mm.group(1)), float(mm.group(2))))
             q = mm.end()
+    # per-face-corner normals (MeshNormals: normal list plus one index list per face)
+    normals = None
+    m = re.search(r'MeshNormals\s*[\w]*\s*\{\s*(\d+)\s*;', txt)
+    if m:
+        nn = int(m.group(1))
+        q = m.end()
+        nv = re.compile(r'\s*(-?[\d.eE+-]+)\s*;\s*(-?[\d.eE+-]+)\s*;\s*(-?[\d.eE+-]+)\s*;[,;]')
+        nl = []
+        for _ in range(nn):
+            mm = nv.match(txt, q)
+            nl.append((float(mm.group(1)), float(mm.group(2)), float(mm.group(3))))
+            q = mm.end()
+        fm = re.match(r'\s*(\d+)\s*;', txt[q:])
+        q += fm.end()
+        normals = []
+        for _ in range(int(fm.group(1))):
+            mm = facem.match(txt, q)
+            normals.append([nl[int(v)] for v in mm.group(2).split(',')])
+            q = mm.end()
     out['verts'] = verts
     out['faces'] = faces
     out['uvs'] = uvs
+    out['normals'] = normals
     return out
 
 

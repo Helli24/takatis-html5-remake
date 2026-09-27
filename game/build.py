@@ -153,22 +153,34 @@ for t_ in range(3, 9):
     enemies[t_] = dict(enemies[9])
 data['enemyInit'] = {k: v for k, v in enemies.items() if 'hp' in v}
 
-# 3D bosses: DirectX .x meshes -> flat arrays, skins are plain (unscrambled) BMPs
-from xfile import parse_x, transform, triangulate, vertex_normals
-BOSS_PARTS = {1: ['a01', 'b01', 'c01'], 2: ['a02', 'b02'], 3: ['003'], 4: ['004'], 5: ['005'], 6: ['a06', 'b06']}
-data['bosses'] = {}
-for bid, parts in BOSS_PARTS.items():
-    lst = []
-    for part in parts:
-        x = parse_x(os.path.join(ROOT, 'assets', '3D', 'endboss_' + part + '.x'))
-        v = transform(x['verts'], x['matrix'])
-        tris = triangulate(x['faces'])
-        nrm = vertex_normals(v, tris)
-        uv = x['uvs'] or [(0, 0)] * len(v)
-        lst.append({'name': part, 'v': [round(c, 3) for pnt in v for c in pnt], 'n': [round(c, 3) for pnt in nrm for c in pnt],
-                    'uv': [round(c, 4) for pnt in uv for c in pnt], 'i': [i for tri in tris for i in tri],
-                    'tex': (x['texture'] or '').replace('.bmp', ''), 'color': x['color'][:3]})
-    data['bosses'][bid] = lst
+# 3D bosses: DirectX .x meshes as triangle lists in object space (per corner: position, normal, uv). The game scales
+# the vertices (CD3DFile::Scale) and applies the frame matrix and the world matrix at render time.
+from xfile import parse_x, triangulate, vertex_normals
+data['meshes'] = {}
+for part in ['a01', 'b01', 'c01', 'a02', 'b02', '003', '004', '005', 'a06', 'b06']:
+    x = parse_x(os.path.join(ROOT, 'assets', '3D', 'endboss_' + part + '.x'))
+    v, uv = x['verts'], x['uvs'] or [(0, 0)] * len(x['verts'])
+    smooth = vertex_normals(v, triangulate(x['faces']))
+    P, N, U = [], [], []
+    for fi, face in enumerate(x['faces']):
+        fn = x['normals'][fi] if x['normals'] else [smooth[k] for k in face]
+        for a, b, c in [(0, k, k + 1) for k in range(1, len(face) - 1)]:
+            for corner in (a, b, c):
+                vi = face[corner]
+                P += [round(q, 3) for q in v[vi]]
+                N += [round(q, 4) for q in fn[corner]]
+                U += [round(q, 4) for q in uv[vi]]
+    data['meshes'][part] = {'p': P, 'n': N, 'uv': U, 'm': x['matrix'] or [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+                            'tex': os.path.splitext(x['texture'] or '')[0].lower(), 'color': x['color'][:3]}
+
+# the end-boss routine runs as translated code; it needs the constants and variables of .rdata/.data
+import bossvm
+data['bossMem'] = []
+for sec in _pe.sections:
+    if sec.Name.rstrip(b'\0') in (b'.rdata', b'.data'):
+        va = sec.VirtualAddress
+        data['bossMem'].append([va + _pe.OPTIONAL_HEADER.ImageBase, base64.b64encode(_img[va:va + sec.Misc_VirtualSize]).decode()])
+BOSS_JS = bossvm.translate(_img, _pe.OPTIONAL_HEADER.ImageBase)
 
 
 def bmp_any_png(path):
@@ -211,8 +223,8 @@ t = open(os.path.join(HERE, 'template.html'), encoding='utf-8').read()
 assert t.count('/*DATA*/') == 1
 out = os.path.join(HERE, 'takatis.html')
 lib = open(os.path.join(ROOT, 'libopenmpt.js'), encoding='utf-8', errors='ignore').read()
-assert t.count('/*LIBOPENMPT*/') == 1 and t.count('/*WASM_B64*/') == 1
+assert t.count('/*LIBOPENMPT*/') == 1 and t.count('/*WASM_B64*/') == 1 and t.count('/*BOSSASM*/') == 1
 wasm_b64 = base64.b64encode(open(os.path.join(ROOT, 'libopenmpt.wasm'), 'rb').read()).decode()
-html = t.replace('/*DATA*/', js).replace('/*LIBOPENMPT*/', lib).replace('/*WASM_B64*/', wasm_b64)
+html = t.replace('/*BOSSASM*/', BOSS_JS).replace('/*DATA*/', js).replace('/*LIBOPENMPT*/', lib).replace('/*WASM_B64*/', wasm_b64)
 open(out, 'w', encoding='utf-8').write(html)
 print('wrote', out, os.path.getsize(out) // 1024, 'KB')
