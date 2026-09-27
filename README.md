@@ -34,7 +34,7 @@ Nicht eingecheckt, weil erzeugbar: `assets/`, `assets_png/`, `render/`,
 ## Bauen
 
 ```bash
-python game/build.py        # erzeugt game/takatis.html (ca. 11 MB, alles eingebettet)
+python game/build.py        # erzeugt game/takatis.html (ca. 14 MB, alles eingebettet)
 ```
 
 Voraussetzung sind `extracted/` sowie `assets/` (Sounds und Musik in Standardformaten).
@@ -90,8 +90,10 @@ Adressen beziehen sich auf `extracted/Takatis.exe`.
   Wände töten sofort, auch mit Schild. Trefferbox für Gegnerschüsse und Items ist das volle Rechteck 49×31.
 * **Schild** 1000 Frames, ab 500 blinkt er jedes 2., ab 750 jedes 4. Frame. Er schluckt Schüsse und zerstört
   gerammte Gegner, nur die Typen 26, 27 und 39 töten trotzdem.
-* **Tod** (`0x41c820`): 400 Frames Explosionssequenz, dann Leben −1, Raketen −1, Powerlines −1. Game over bei 0
-  Leben. Neustart am Levelanfang oder, wenn schon überschritten, bei der Levelhälfte. Das Scrolling läuft weiter.
+* **Tod** (`0x41c820`, Ende bei `0x41c995`): Zähler 400 läuft ab, dann Leben −1, Raketen −1, Powerlines −1,
+  Explosionen, Partikel und Schüsse gelöscht, Abblenden mit 5 ms je Stufe, danach Stage-Intro oder Game over
+  (`0x4966bc`). Neustart am Levelanfang oder, wenn schon überschritten, bei der Levelhälfte. Das Scrolling läuft
+  weiter.
 * **Start** (`0x420bf4`): Spread 1, Laser 0, Bounce 0, 5 Raketen, 3 Powerlines. Leben 5/4/3 je nach
   Schwierigkeit. Stage geschafft: +1 Leben, keine Punkte. Endgegner: +10000.
 * **Waffen**: Spread und Bounce feuern einmal pro Tastendruck ohne Abklingzeit, der Laser feuert Dauerfeuer alle
@@ -104,7 +106,7 @@ Adressen beziehen sich auf `extracted/Takatis.exe`.
   1UP +2500. Zufallsdrops bei `rand()%3500`: ≤20 Schild, ≤100 Rakete, ≤140 Powerline.
 * **Sound-IDs** (Ladefunktion bei `0x414a00`): 0 Explosion, 1 Spread, 2 Beam, 3 Hit, 5 Rocket, 6 Laser, 7 Bounce,
   0x11 Shield, 0x12 BigExplosion, 0x13 Powerline, 0x15 Morph, 0x16 Laser2, 0x17 Bigshot, 0x18 Trigger,
-  0x19 Klippikloppi, Sprache 9 online, 0xa bounce, 0xb spread, 0xc laser, 0xd homing, 0xe line, 0xf shield,
+  0x19 Klippikloppi, Sprache 4 Intro, 8 Cheat, 9 online, 0xa bounce, 0xb spread, 0xc laser, 0xd homing, 0xe line, 0xf shield,
   0x10 1up, 0x14 bigone.
 * **Level-Objekte**: Die y-Koordinate ist eine Bildschirmkoordinate und enthält die 16 px der oberen HUD-Leiste.
   Ein Objekt wird aktiv (`0x40a2ca`), wenn seine x-Position das Fenster 635..640 px vor der Scrollposition
@@ -170,6 +172,28 @@ Adressen beziehen sich auf `extracted/Takatis.exe`.
   dann 2 s warten. **Speichern** nach den Bossen 1–5 (Zustand 7, `0x423400`), **Abspann** nach Boss 6
   (Zustand 10, `0x42a250`, dieselbe Level-Routine mit `ot.lvl` und `bigfont.gfx` als Kacheln).
 * **Schrift**: proportional, Breitentabelle bei `0x484820`, Vorschub Breite+1, Leerzeichen 10 (+1).
+* **Programmzustände** (`0x4936b0`, Sprungtabelle `0x41815e`): 0 Menü `0x420900`, 1 Spiel, 2 Startsequenz
+  `0x429340`, 3 Titel `0x4203a0`, 4 Optionen `0x420ef0`, 5 Hilfe `0x421cc0`, 6 Neues Spiel `0x422520`,
+  7 Speichern `0x423400`, 8 Highscores `0x4243f0`, 9 Credits `0x424fd0`, 10 Abspann `0x42a250`, 11 Joystick
+  `0x42ab60`. Die Menüs fragen die Tasten mit `GetAsyncKeyState` ab, mit einer Sperre bis zum Loslassen
+  (`0x4966ab`) und einem gemeinsamen Cursor (`0x4966c0`). Der wird nicht überall zurückgesetzt: Nach dem Speichern
+  in Slot 2 steht er nach „Spiel beenden“ im Menü auf „Options“.
+* **Blenden** (`0x4124f0` ein, `0x412620` aus): 100 Gamma-Stufen zu n ms, blockierend. Escape während einer Blende
+  setzt `0x496460`, das nie zurückgesetzt wird. Ist die Startsequenz über Schritt 3 hinaus (`0x494898`), endet
+  danach jede Blende sofort. Wartezeiten (`0x425bd0`) lassen sich nicht überspringen. Escape im Intro führt daher
+  direkt ins Menü, weil der Titel die noch gedrückte Taste sieht.
+* **Startsequenz** (Zustand 2): Poke53280, Loading, zwei Intro-Bilder mit Sprachsample, dann der Titel mit
+  wehendem Logo (140 Zeilen, Sinus) und Sternenfeld. Die Credits (Zustand 9) laufen über Kacheln, Schienen und
+  Türme; ihr Text steht als 351 Zeilen im Code bei `0x426bb8`, die Hilfe als 5 Seiten bei `0x480e0c`.
+* **Im Spiel** (`0x4176dd`): F1 Hilfe, F2 Lautstärke, Escape die Abfrage „Spiel beenden ?“ (nicht bei Game over
+  und nicht im Stage-Übergang `0x4966dc`), Tab die Konsole. Eine Pause-Taste gibt es nicht.
+* **Optionen** ohne `Options.ini` (`0x419161`): Effekt an, Joystick-Knöpfe 0..7, Rauch aus, Lautstärken 100/100.
+  Die mitgelieferte `Options.ini` besteht aus 13 Nullbytes, das Remake nimmt deshalb die Werte ohne Datei.
+* **Spielstände** `Takatis.SG1`..`SG6`, 48 Byte, jeder Wert +0x1966: Stage, Schwierigkeit, Waffe, Spread, Laser,
+  Bounce, Raketen, Powerlines, Leben, Schildzeit, Punkte, Cheater. Nach Boss n wird die folgende Stage gespeichert.
+* **Highscores** `Highscores.hsl`: 10 Einträge zu 88 Byte mit Prüfsumme, Standardliste von Poke53280 (100000) bis
+  ZFX-Forum (10000). Bei Game over steigt „Game Over“ von y=441 mit 3 px pro Frame auf, dann folgt die
+  Namenseingabe oder eine Bemerkung (zu wenig Punkte, Cheater).
 
 ## Stand des Remakes
 
@@ -178,10 +202,19 @@ die sechs Endgegner als übersetzte Originalroutine mit 3D-Darstellung über Web
 Levelende, Intro, Speicherbildschirm und Abspann wie im Original, Musik über libopenmpt,
 Original-Sounds und -Sprachsamples.
 
-Noch nicht aus dem Original nachgebaut, sondern angenähert: Titel, Menüs, Optionen, Hilfe,
-Credits, die Abfrage beim Beenden, der Ablauf bei Game over und das Überspringen von
-Blenden mit Escape. Die Option `0x4966b4` (Rauch hinter Debris1) ist wie in der
-mitgelieferten `Options.ini` aus.
+Startsequenz, Titel, Menü, Neues Spiel, Optionen, Hilfe, Highscores, Credits, die Abfrage beim
+Beenden und Game over mit Namenseingabe sind aus den Zustands-Handlern nachgebaut, samt Blenden
+und Escape-Sperre. Spielstände, Highscores und Optionen liegen im `localStorage` des Browsers.
+Die Option `0x4966b4` (Rauch hinter Debris1) ist anfangs aus und lässt sich in den Optionen
+einschalten.
+
+Angenähert: Joystick (nur „Kein Joystick angeschlossen !“), „Quit Game“ blendet ab und kehrt zum
+Startbild des Remakes zurück, der Flaggeneffekt der Highscores vergleicht in Zeile 0 mit 0 statt mit
+Speicherresten, die Prüfsummen der Dateien entfallen. Noch offen: die Konsole (Tab) mit
+ihren Befehlen.
+
+Hilfen des Remakes, die es im Original nicht gibt: P Pause, F4 Stage überspringen bzw.
+Boss zerstören, F9 Infomodus, M Ton aus, −/+ Musiklautstärke.
 
 ## Der Patch für das Original
 

@@ -13,7 +13,7 @@
 <div id="wrap"><canvas id="c" width="640" height="480" tabindex="0"></canvas><div id="msg">LOADING…</div></div>
 <div class="bar">
   <span><kbd>←↑↓→</kbd> fliegen</span><span><kbd>Space</kbd> Primärwaffe</span><span><kbd>Strg</kbd> Beam laden</span><span><kbd>Shift</kbd> Rakete</span><span><kbd>Enter</kbd> Powerline</span>
-  <span><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> Spread/Bounce/Laser</span><span><kbd>P</kbd> Pause</span><span><kbd>F1</kbd> Infomodus</span><span><kbd>F2</kbd> Stage überspringen</span><span><kbd>M</kbd> Sound</span><span><kbd>-</kbd><kbd>+</kbd> Musik</span>
+  <span><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> Spread/Bounce/Laser</span><span><kbd>F1</kbd> Hilfe</span><span><kbd>F2</kbd> Lautstärke</span><span><kbd>Esc</kbd> Spiel beenden</span><span><kbd>P</kbd> Pause</span><span><kbd>F4</kbd> Stage überspringen</span><span><kbd>F9</kbd> Infomodus</span><span><kbd>M</kbd> Sound</span><span><kbd>-</kbd><kbd>+</kbd> Musik</span>
 </div>
 <script>var __wasmBytes=(function(){const b=atob('/*WASM_B64*/'),a=new Uint8Array(b.length);for(let i=0;i<b.length;i++)a[i]=b.charCodeAt(i);return a.buffer;})();var libopenmpt={wasmBinary:__wasmBytes,instantiateWasm:function(info,receive){WebAssembly.instantiate(__wasmBytes,info).then(function(r){window.__wasmInst=r.instance;window.__wasmInfo=info;receive(r.instance,r.module);}).catch(function(e){console.error('libopenmpt wasm',e);});return {};},onRuntimeInitialized:function(){window.__mptReady=true;}};</script>
 <script>/*LIBOPENMPT*/</script>
@@ -49,7 +49,7 @@ async function initAudio(){if(AC)return;AC=new (window.AudioContext||window.webk
 // volume of the options ((100-v)*-30 hundredths of a dB). The shield hum (0x11) loops until it is stopped.
 const VOICE={};
 function sfxStop(name){const s=VOICE[name];if(s){VOICE[name]=null;try{s.stop();}catch(e){}}}
-function sfx(name,loop){if(!AC||muted||!buffers[name])return;const v=G.sfxVol===undefined?1:G.sfxVol;if(v<=0)return;sfxStop(name);
+function sfx(name,loop){if(!AC||muted||!buffers[name])return;const v=G.sfxVol===undefined?1:G.sfxVol;sfxStop(name);
   const s=AC.createBufferSource(),g=AC.createGain();s.buffer=buffers[name];s.loop=!!loop;g.gain.value=Math.pow(10,-(1-v)*1.5);
   s.connect(g);g.connect(AC.destination);s.onended=()=>{if(VOICE[name]===s)VOICE[name]=null;};s.start();VOICE[name]=s;}
 
@@ -63,7 +63,7 @@ function mptU8(){return new Uint8Array(mptMem());}function mptF32(){return new F
 function mptOk(){return window.__mptReady&&typeof libopenmpt!=='undefined'&&libopenmpt._openmpt_module_create_from_memory2&&mptMem();}
 function musicStop(){if(MUSIC.node){try{MUSIC.node.disconnect();}catch(e){}MUSIC.node.onaudioprocess=null;MUSIC.node=null;}
   if(MUSIC.ptr){libopenmpt._openmpt_module_destroy(MUSIC.ptr);MUSIC.ptr=0;}MUSIC.cur=null;}
-function musicPlay(name){MUSIC.want=name;MUSIC.level=1;if(!AC||!mptOk()||!DATA.music[name]){return;}if(MUSIC.cur===name)return;musicStop();
+function musicPlay(name){MUSIC.want=name;MUSIC.level=1;G.song=SONG_ID[name]||0;if(!AC||!mptOk()||!DATA.music[name]){return;}if(MUSIC.cur===name)return;musicStop();
   const M=libopenmpt;const bytes=b64(DATA.music[name].split(',')[1]);const fp=M._malloc(bytes.length);mptU8().set(bytes,fp);
   const ptr=M._openmpt_module_create_from_memory2(fp,bytes.length,0,0,0,0,0,0,0);M._free(fp);if(!ptr)return;
   M._openmpt_module_set_repeat_count(ptr,-1);
@@ -163,7 +163,7 @@ function bossStep(){
   bossSegments();bossRender();
   // destroyed: phase 3, then the save screen (0x4936b0 = 7) or, after the last boss, a fade and the end (10)
   if(V.r32(0x49645c)!==G.endPhase){G.endPhase=V.r32(0x49645c);const st=V.r32(0x4936b0);
-    if(BOSS.fadeMs){const ms=BOSS.fadeMs;BOSS.fadeMs=0;fadeStart(ms,()=>endStart());}else if(st===7)saveStart();}}
+    if(BOSS.fadeMs){const ms=BOSS.fadeMs;BOSS.fadeMs=0;fadeOut(ms,()=>endStart());}else if(st===7)saveStart();}}
 // boss 5 keeps its tail as ordinary enemies in the enemy array: mirror active records as remake enemies
 function bossSegments(){for(let k=1;k<=10;k++){const a=HND.enemies+k*REC;if(V.r32(a+0x34)!==39){continue;}
     let s=BOSS.seg[k];const on=V.r32(a+0x28)===1;
@@ -245,7 +245,7 @@ addEventListener('keydown',e=>{if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight
   if(!keys[e.code])pressed[e.code]=true;keys[e.code]=true;if(!AC)initAudio();});
 addEventListener('keyup',e=>{keys[e.code]=false;});
 addEventListener('blur',()=>{for(const k in keys)keys[k]=false;});
-cv.addEventListener('pointerdown',()=>{cv.focus();if(!AC)initAudio();});
+cv.addEventListener('pointerdown',()=>{cv.focus();if(!AC)initAudio();G.clicked=true;});
 const K={up:()=>keys.ArrowUp||keys.KeyW||keys.Numpad8,down:()=>keys.ArrowDown||keys.KeyS||keys.Numpad2,left:()=>keys.ArrowLeft||keys.KeyA||keys.Numpad4,right:()=>keys.ArrowRight||keys.KeyD||keys.Numpad6,
   fire:()=>keys.Space,beam:()=>keys.ControlLeft||keys.ControlRight,rocket:()=>keys.ShiftLeft||keys.ShiftRight,line:()=>keys.Enter||keys.NumpadEnter};
 
@@ -259,7 +259,7 @@ const FW=DATA.fontW;
 function textW(str){let w=0;for(const ch of String(str)){const c=ch.charCodeAt(0);w+=c===32?10:(FW[c]||0)+1;}return w;}
 function text(str,x,y,row=0,align=0){str=String(str);const s=S.font;if(align===1)x-=Math.trunc(textW(str)/2);else if(align===2)x-=textW(str);
   for(let i=0;i<str.length;i++){const c=str.charCodeAt(i);
-    if(c>=33&&c<=125){const sx=(c<97?(c-33):(c-97))*10,sy=row*28+(c>=97?14:0);ctx.drawImage(s.img,sx,sy,10,14,Math.round(x),Math.round(y),10,14);}
+    if(c>=33&&c<=125&&x>=0&&x+10<=W){const sx=(c<97?(c-33):(c-97))*10,sy=row*28+(c>=97?14:0);ctx.drawImage(s.img,sx,sy,10,14,Math.round(x),Math.round(y),10,14);}
     x+=(FW[c]||0)+1;if(c===32)x+=10;}}
 function num(str,cx,y){str=String(str);const s=S.font2;let x=Math.round(cx-str.length*4.5);
   for(const ch of str){const c=ch.charCodeAt(0)-48;
@@ -271,14 +271,6 @@ const ITEMS=['spread','laser','bounce','rocket','line','shield','oneup'];
 // which weapon stage a primary-weapon container grants, per level index (from the original code)
 const STAGE_TABLE=[{0:2,5:3,9:4},{1:1,3:2,6:3,11:4},{2:1,4:2,8:3,10:4}];
 const ITEM_SPR={spread:'pu_spread',laser:'pu_laser',bounce:'pu_bounce',rocket:'pu_rocket',line:'pu_line',shield:'pu_shield',oneup:'pu_oneup'};
-const MENU_ITEMS=['start','options','help','highscore','credits','quit'];
-const SLOTS=6;
-function slotKey(i){return 'takatis.slot'+i;}
-function readSlot(i){try{return JSON.parse(localStorage.getItem(slotKey(i)));}catch(e){return null;}}
-function writeSlot(i,v){try{localStorage.setItem(slotKey(i),JSON.stringify(v));}catch(e){}}
-function panel(x,y,w,h){ctx.fillStyle='rgba(46,32,18,.95)';ctx.fillRect(x,y,w,h);
-  ctx.strokeStyle='#7d6134';ctx.lineWidth=3;ctx.strokeRect(x+1.5,y+1.5,w-3,h-3);
-  ctx.strokeStyle='#3a2a14';ctx.lineWidth=1;ctx.strokeRect(x+5.5,y+5.5,w-11,h-11);}
 const ITEM_FRAME={spread:0,laser:1,bounce:2,rocket:3,line:4,shield:5,oneup:6};   // powerups.gfx
 // ---------- enemies: init values are read from Takatis.exe at build time (0x40c760, see build.py)
 const EI=DATA.enemyInit;EI[39]={hp:999999,w:40,h:40,frames:5,delay:10,cols:5,pp:0,pts:50000};
@@ -300,9 +292,10 @@ function turretStep(e,d){const A=e.an;A.col=1;if(P.x+50<e.x)A.col=0;if(P.x>e.x+4
   e.tc++;A.tick=d.delay-1;}
 
 // ---------- game state
-window.G=window.G||{};const G={state:'menu',level:0,scroll:0,speed:1,maxScroll:0,next:0,lives:5,score:0,diff:0,info:false,t:0,frame:0,
-  enemies:[],shots:[],timer:0,music:null,gamma:100,endPhase:0,endT:0,bossActive:false,savedSpeed:0,hiscore:0,menuSel:0,startRow:0,slotSel:0,optSel:0,page:0,creditY:0,slot:null,sfxVol:1};
-let P;window.__dbg=()=>({G,P,MUSIC,BOSS,V});window.__boss=()=>({phase:BOSS.phase,state:V.r32(0x494160),cnt:V.r32(0x49404c),hp:V.r32(0x494050),bx:V.r32(0x4948b8),by:V.r32(0x496458),draws:BOSS.draws.length,blits:BOSS.blits.length});window.__tick=(n)=>{for(let i=0;i<n;i++)step();render();};window.__startBoss=(id)=>{G.lives=5;G.score=0;P=null;G.level=2*id-1;startLevel(2*id-1,level().wb*32-641);G.state='play';G.gamma=100;};window.__fx=()=>({part:PART.length,expl:EXPL.length,shots:G.shots.length});window.__lv=(i)=>{P=null;startLevel(i);G.state='play';G.gamma=100;};window.__eshot=(x,y,spr)=>eshot(x,y,0,0,spr);window.__end=()=>{if(!P)P=newPlayer();endStart();};window.__probe=()=>({tile:!!tileHit(shipShape()),ram:G.enemies.filter(e=>!e.dead&&enemyTouch(shipShape(),e)).map(e=>e.type)});window.__GL=()=>GL;window.__rerender=()=>bossRender();
+window.G=window.G||{};const G={state:'boot',level:0,scroll:0,speed:1,maxScroll:0,lives:5,score:0,diff:0,info:false,t:0,frame:0,
+  enemies:[],shots:[],timer:0,music:null,gamma:100,endPhase:0,endT:0,bossActive:false,savedSpeed:0,sfxVol:1,
+  sub:0,escLatch:false,blk:null,wait:null,sel:0,latch:false,song:0,jukebox:0,go:0,over:null,cheater:0,quitSel:0,paused:false,clicked:false};
+let P;window.__dbg=()=>({G,P,MUSIC,BOSS,V});window.__boss=()=>({phase:BOSS.phase,state:V.r32(0x494160),cnt:V.r32(0x49404c),hp:V.r32(0x494050),bx:V.r32(0x4948b8),by:V.r32(0x496458),draws:BOSS.draws.length,blits:BOSS.blits.length});window.__tick=(n)=>{for(let i=0;i<n;i++)step();render();};window.__startBoss=(id)=>{G.lives=5;G.score=0;P=null;G.level=2*id-1;startLevel(2*id-1,level().wb*32-641);G.state='play';G.gamma=100;};window.__fx=()=>({part:PART.length,expl:EXPL.length,shots:G.shots.length});window.__lv=(i)=>{P=null;startLevel(i);G.state='play';G.gamma=100;};window.__eshot=(x,y,spr)=>eshot(x,y,0,0,spr);window.__end=()=>{if(!P)P=newPlayer();endStart();};window.__probe=()=>({tile:!!tileHit(shipShape()),ram:G.enemies.filter(e=>!e.dead&&ramTest(e)).map(e=>e.type)});window.__GL=()=>GL;window.__rerender=()=>bossRender();
 // player values from Takatis.exe: new game 0x420bf4, level (re)start 0x426710, update 0x41ced0
 function newPlayer(){return {x:10,y:184,w:49,h:34,energy:3,dead:0,bank:0,cool:0,swcool:0,weapon:0,lvl:[1,0,0],rockets:5,lines:3,beam:0,latch:{},
   shieldOn:false,shieldT:0,shieldF:0,shieldC:0,hum:false,shieldDraw:[],boomed:false,spd:3};}
@@ -394,9 +387,10 @@ function partUpdate(p){
   if(p.grav===6&&p.spr!==8){p.vy++;p.grav=0;}p.grav++;}
 // list update (0x4035b0): after each particle the next one is dropped when it is more than 16 px outside the
 // playfield; the newest particle is never checked. Particles made during the update wait for the next frame.
-function partStep(){const L=PART,n=L.length,keep=[];
+const PB={top:16,bottom:433};   // 0x485690/0x485694: the playfield, the whole screen during the credits
+function partStep(){const L=PART,n=L.length,keep=[],y0=PB.top-16-PY,y1=PB.bottom+16-PY;
   for(let i=n-1;i>=0;i--){partUpdate(L[i]);keep.push(L[i]);
-    if(i>0){const q=L[i-1];if(q.x<-16||q.x>W+16||q.y<-16||q.y>PH+17)i--;}}
+    if(i>0){const q=L[i-1];if(q.x<-16||q.x>W+16||q.y<y0||q.y>y1)i--;}}
   PART=keep.reverse().concat(L.slice(n));}
 function partDraw(){for(let i=PART.length-1;i>=0;i--){const p=PART[i],d=p.draw;if(d)ctx.drawImage(S[PSPR[p.spr]].img,d.sx,d.sy,16,16,d.x,d.y,16,16);}}
 
@@ -600,12 +594,11 @@ function shieldStep(front){if(!P.hum){sfx('shield',true);P.hum=true;}
   const t=P.shieldT;if(t<=500||(t<=750&&t%2===0)||t%4===0)P.shieldDraw.push({f:P.shieldF,front});
   P.shieldC++;if(++P.shieldT===1000){P.shieldOn=false;P.shieldT=0;P.hum=false;sfxStop('shield');}}
 // death (0x41c95b): the big explosion sound once, 400 frames of explosions around the ship (silent, since the ship
-// is dead) while the timer is above 100, then a life less, a rocket and a powerline less and the level intro
+// is dead) while the timer is above 100; when it runs out a life, a rocket and a powerline less, the lists emptied, a
+// fade out in 5 ms steps, then the level intro or, without lives, game over
 function deathStep(){if(!P.boomed){sfx('bigexplosion');P.boomed=true;}
-  const was=P.dead;P.dead--;
-  if(was<=0){G.lives--;if(P.rockets>0)P.rockets--;if(P.lines>0)P.lines--;
-    if(G.lives<=0){G.state='gameover';G.timer=240;musicPlay('highscore');}
-    else{const half=level().wb*16;startLevel(G.level,G.scroll>half?half:0,true);}
+  if(--P.dead<=0){G.lives--;if(P.rockets>0)P.rockets--;if(P.lines>0)P.lines--;PART=[];EXPL=[];G.shots=[];   // 0x41c995: the counter ran out
+    fadeOut(5,()=>{if(G.lives<=0){G.go=1;return;}const half=level().wb*16;startLevel(G.level,G.scroll>half?half:0,true);});
     return;}
   if(P.dead>100)for(let i=0;i<25;i+=5){const dx=R(21)-10,dy=R(51)-25;if(R(10)===1){explosion(P.x+dx,P.y+dy,i,0);particle(P.x+dx,P.y+dy,0);}}}
 // ---------- pixel collision (0x412f50): two shapes touch where both source pixels are not the colour key
@@ -774,7 +767,7 @@ function levelEnd(){const bossLv=G.level%2===1,flag=bossFlag();
   if(G.endPhase===2&&!P.dead){G.endT++;
     if(G.endT===1)sfx('morph');
     if(G.endT>=50){if(!G.clearMusic){G.clearMusic=true;musicPlay('clear');}waveStep();}
-    if(G.endT>430){G.endT=0;fadeStart(20,()=>{musicStop();MUSIC.want=null;G.lives++;startLevel(G.level+1);});return;}}
+    if(G.endT>430){G.endT=0;fadeOut(20,()=>{musicStop();MUSIC.want=null;G.lives++;startLevel(G.level+1);});return;}}
   // the end of the level (not while a destroyed boss has the phase at 3)
   if(G.scroll>G.maxScroll&&!P.dead&&flag!==0xff&&G.endPhase!==2)G.endPhase=1;
   // boss levels: "Big one" 640 px before the end, from the end on the scrolling stops, the ship glides to (0,200),
@@ -799,11 +792,6 @@ function waveStep(){if(!WAVE.prev){WAVE.prev=offscreen();WAVE.cur=offscreen();sn
 function offscreen(){const c=document.createElement('canvas');c.width=W;c.height=H;return c;}
 function snapshot(c){const g=c.getContext('2d'),keep=ctx;ctx=g;try{drawPlayfield();}finally{ctx=keep;}}
 
-// ---------- fades (0x412620 out, 0x4124f0 in): the gamma ramp goes through 100 steps of the given milliseconds; the
-// game stands still meanwhile. The remake counts the time in frames of 1000/75 ms.
-function fadeStart(ms,done){G.fade={ms,t:0,done,img:offscreen()};G.fade.img.getContext('2d').drawImage(cv,0,0);G.state='fadeout';}
-function fadeStep(){const f=G.fade;f.t+=1000/FPS;G.gamma=Math.max(0,100-Math.floor(f.t/f.ms));
-  if(f.t>=100*f.ms){G.fade=null;G.gamma=100;f.done();}}
 // ---------- frame of 32x32 tiles from rahmen.gfx (0x41ff00): w+1 by h+1 tiles, corners, edges and fill
 function rahmen(x,y,w,h){const im=S.rahmen.img,b=(sx,sy,dx,dy)=>ctx.drawImage(im,sx,sy,32,32,dx,dy,32,32);
   b(0,0,x,y);b(0,64,x,y+h*32);b(64,0,x+w*32,y);b(64,64,x+w*32,y+h*32);
@@ -813,25 +801,19 @@ function rahmen(x,y,w,h){const im=S.rahmen.img,b=(sx,sy,dx,dy)=>ctx.drawImage(im
 // ---------- save screen after bosses 1-5 (state 7, 0x423400): the last frame, a frame, six slots with stage, lives,
 // weapon stages, rockets, powerlines, skill and score. Cursor keys move (hit sound), Space/Enter saves the next
 // stage into the slot, Escape continues without saving (beam sound).
-function saveStart(){G.state='save';G.saveSel=0;G.saveLatch=false;G.saveImg=offscreen();G.saveImg.getContext('2d').drawImage(cv,0,0);}
-function saveStep(){const u=keys.ArrowUp,d=keys.ArrowDown;
-  if(u&&G.saveSel>0&&!G.saveLatch){G.saveSel--;G.saveLatch=true;sfx('hit');}
-  if(d&&G.saveSel<5&&!G.saveLatch){G.saveSel++;G.saveLatch=true;sfx('hit');}
-  if(!u&&!d&&!keys.ArrowLeft&&!keys.ArrowRight)G.saveLatch=false;
-  if(pressed.Escape){sfx('beam');G.saveSel=0;G.state='play';return;}
-  if(pressed.Space||pressed.Enter){writeSlot(G.saveSel,{level:G.level+1,score:G.score,lives:G.lives,lvl:P.lvl.slice(),weapon:P.weapon,rockets:P.rockets,lines:P.lines,diff:G.diff});G.state='play';}}
+function saveStart(){G.state='save';G.slots=loadSlots();G.saveImg=offscreen();G.saveImg.getContext('2d').drawImage(cv,0,0);}
+function saveStep(){
+  if(keys.ArrowUp&&G.sel>0&&!G.latch){G.sel--;G.latch=true;sfx('hit');}
+  if(keys.ArrowDown&&G.sel<5&&!G.latch){G.sel++;G.latch=true;sfx('hit');}
+  if(keys.Escape){waitUp(()=>keys.Escape,()=>{sfx('beam');G.sel=0;G.state='play';});return;}
+  if(noCursor())G.latch=false;
+  if(keys.Space||enter())waitUp(()=>keys.Space||enter(),()=>{saveSlot(G.sel,{level:G.level+1,skill:G.diff,weapon:P.weapon,spread:P.lvl[0],
+    laser:P.lvl[1],bounce:P.lvl[2],rockets:P.rockets,lines:P.lines,lives:G.lives,shield:P.shieldT,score:G.score,cheater:G.cheater});G.state='play';});}
 function drawSave(){ctx.drawImage(G.saveImg,0,0);rahmen(64,96,15,8);
   text('Save Game',275,120,1);text('Escape - Continue without Saving',198,350,0);
-  text('Slot',105,165,0);text('Stage',150,165,0);text('Lives',195,165,0);text('Skill Score',455,165,0);
-  for(const [x,s] of [[240,'pu_spread'],[285,'pu_bounce'],[330,'pu_laser'],[375,'pu_rocket'],[420,'pu_line']])ctx.drawImage(S[s].img,0,0,20,20,x,159,20,20);
-  for(let i=0;i<6;i++){const y=200+i*25,sv=readSlot(i);
-    if(!sv)text('-- empty Slot --',255,y,0);
-    else{text(String((sv.level>>1)+1),153,y,0);text('-',165,y,0);text(String(sv.level%2+1),177,y,0);text(String(sv.lives),210,y,0);
-      for(const [x,n] of [[240,sv.lvl[0]],[285,sv.lvl[2]],[330,sv.lvl[1]]])for(let k=0;k<n;k++)ctx.drawImage(S.ws.img,x+k*6,y);
-      text(String(sv.rockets),375,y,0);text(String(sv.lines),420,y,0);text(['Easy','Norm','Hard'][sv.diff],455,y,[2,4,1][sv.diff]);
-      text(String(sv.score),500,y,0);}
-    text(String(i+1),120,y,0);}
-  ctx.drawImage(S.star.img,48,0,24,24,90,194+G.saveSel*25,24,24);}
+  text('Slot',105,165,0);text('Stage',150,165,0);text('Lives',195,165,0);text('Skill Score',455,165,0);slotIcons(159);
+  for(let i=0;i<6;i++)slotRow(G.slots[i],i,200+i*25);
+  bf('star',48,0,72,24,90,194+G.sel*25);}
 // ---------- the end (state 10, 0x42a250): Endscreen.gfx behind the enemy parade of Level/ot.lvl (its foreground tiles
 // are the letters of bigfont.gfx), scrolling 1 px per frame and starting over after 13200; below it the text at
 // 0x4766d8 in row 6 of the font, every screen column moved by a sine wave whose size swings between -5 and 0.3
@@ -843,7 +825,7 @@ function endStart(){G.state='end';G.level=12;const l=level();   // level 0xff: o
   if(!END.cv){END.cv=document.createElement('canvas');END.cv.width=800;END.cv.height=16;}
   Object.assign(END,{txt:0,px:10,sub:2,amp:0,up:false,cnt:0});musicPlay('end');}
 function endStep(){
-  if(pressed.Escape){G.state='gameover';G.timer=240;musicPlay('highscore');return;}
+  if(keys.Escape){waitUp(()=>keys.Escape,()=>{G.state='play';G.go=1;});return;}
   G.scroll++;levelRoutine();G.enemies=G.enemies.filter(e=>!e.dead);shotsStep();partStep();explStep();
   if(G.scroll>13200)G.scroll=0;
   const txt=DATA.outro.text;END.buf=txt.substr(END.txt,70);END.bufPx=END.px;
@@ -893,130 +875,351 @@ function drawHUD(){const hb=S.hudbottom;ctx.drawImage(S.hudtop.img,0,0);ctx.draw
   for(let i=0;i<3;i++){if(i<P.energy)frame('energy',0,196+i*96,439);}
   if(P.beam>0){const s=S.beamload;const wdt=P.beam;ctx.drawImage(s.img,0,0,wdt,24,197,452,wdt,24);}
   bossHUD();
-  if(G.info){ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(0,PY,250,110);const rows=['Scrollposition: '+Math.round(G.scroll),'Scrollspeed   : '+G.speed,'Anzahl Enemys : '+G.enemies.filter(e=>!e.trigger).length,'Anzahl Shots  : '+G.shots.length,'Anzahl Expl.  : '+EXPL.length,'Next Object   : '+G.next+'/'+level().objects.length];rows.forEach((r,i)=>text(r,4,PY+4+i*17,3));}}
+  if(G.info){ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(0,PY,250,110);const rows=['Scrollposition: '+Math.round(G.scroll),'Scrollspeed   : '+G.speed,'Anzahl Enemys : '+G.enemies.filter(e=>!e.trigger).length,'Anzahl Shots  : '+G.shots.length,'Anzahl Expl.  : '+EXPL.length,'Objekte aktiv : '+G.objSt.reduce((a,v)=>a+v,0)+'/'+level().objects.length];rows.forEach((r,i)=>text(r,4,PY+4+i*17,3));}}
 function drawCenter(str,y,row=0){text(str,W/2,y,row,1);}
-const HELP=[['STEUERUNG','CURSOR / NUMPAD  BEWEGEN','SPACE  PRIMAERWAFFE','STRG  BEAM AUFLADEN','SHIFT  RAKETE','RETURN  POWERLINE','1 2 3  WAFFE WAEHLEN','P  PAUSE   ESC  MENUE'],
- ['PRIMAERWAFFEN','SPREAD SHOT  4 STUFEN','  BREITER STREUWINKEL','LASER  4 STUFEN','  DAUERFEUER, SCHNELL','BOUNCE  4 STUFEN','  TEILT SICH AN WAENDEN'],
- ['SEKUNDAERWAFFEN','BEAM  4 LADESTUFEN','RAKETE  ZIELSUCHEND','POWERLINE  KRAFTFELD','SCHILD  KURZ UNVERWUNDBAR','ONE UP  EXTRALEBEN'],
- ['CONTAINER','TRAEGER TRAGEN EXTRAS','ABSCHIESSEN GIBT MEHR','ALS DAS EINSAMMELN','','SPEED TRIGGER AENDERN','DIE SCROLLGESCHWINDIGKEIT'],
- ['DIE STORY','DU SITZT AM STEUERKNUEPPEL','EINES RAUMGLEITERS UND','FLIEGST DURCH EINE WELT','VOLLER FINSTERER GESTALTEN','','LETS BLAST THESE ALIENS']];
-const CREDITS=['TAKATIS','A TRIBUTE TO MANFRED TRENZ','','PROGRAMMIERUNG','HEIKO KALISTA','','GRAFIK MUSIK LEVELDESIGN','JOERG M WINTERSTEIN','','3D MODELLE','MICHAEL MATZKA','','VOICES','ALEXANDRA HERTSTEIN','SEB KUGLER','','(C) 2002 POKE53280','','BROWSER REMAKE','AUS DEN ORIGINALDATEN'];
-function drawMenus(){
-  if(G.state==='menu'){const bw=224,bh=64;panel(W/2-bw/2-16,28,bw+32,bh*MENU_ITEMS.length+24);
-    for(let i=0;i<MENU_ITEMS.length;i++)ctx.drawImage(S.menu.img,(i===G.menuSel?0:224),i*64,224,64,W/2-bw/2,40+i*64,224,64);
+// ========== the screens outside the game: the states of 0x4936b0 ==========
+// Every screen is a routine that runs once per frame and draws into the persistent buffer SCR, the way the original
+// draws into its back buffer: a screen only redraws what it covers, the rest stays from before. Fades (100 steps of the
+// gamma ramp) and the loops that wait for a key to be released hold everything else, like the original's busy loops.
+const SCR=document.createElement('canvas');SCR.width=W;SCR.height=H;const SCX=SCR.getContext('2d');
+function onScr(fn){const keep=ctx;ctx=SCX;try{fn();}finally{ctx=keep;}}
+// BltFast of the rectangle l,t,r,b of a sprite sheet to x,y: without clipper nothing is drawn unless it fits
+function bf(k,l,t,r,b,x,y){const s=S[k];if(bltOk(x,y,[l,t,r,b],s.w,s.h))ctx.drawImage(s.img,l,t,r-l,b-t,x,y,r-l,b-t);}
+const bw=(k,x,y)=>bf(k,0,0,S[k].w,S[k].h,x,y);
+const black=()=>{ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);};
+const enter=()=>keys.Enter||keys.NumpadEnter;
+const SHELL=new Set(['boot','intro','title','menu','newgame','options','joystick','help','hiscore','credits']);
+const onShell=()=>SHELL.has(G.state)||G.state==='ready'||(G.state==='play'&&(G.over||G.go));
+// fades (0x4124f0 in, 0x412620 out): each of the 100 gamma steps is held for ms, a fade out ends with both buffers
+// black. Escape during any fade sets 0x496460 for good: from then on every fade ends at once, provided the start
+// sequence got past its loading screen (0x494898 > 3).
+function snapScreen(){const c=offscreen();c.getContext('2d').drawImage(onShell()?SCR:cv,0,0);return c;}
+function fadeIn(ms,done){G.blk={d:1,i:0,ms,t:0,done,img:snapScreen()};blkCheck();}
+function fadeOut(ms,done){G.blk={d:-1,i:100,ms,t:0,done,img:snapScreen()};blkCheck();}
+function blkCheck(){if(G.escLatch&&G.sub>3)blkEnd();else G.gamma=G.blk.i;}
+function blkEnd(){const b=G.blk;G.blk=null;G.gamma=100;if(b.d<0)onScr(black);if(b.done)b.done();}
+function blkStep(){const b=G.blk;b.t+=1000/FPS;
+  while(G.blk===b&&b.t>=b.ms){b.t-=b.ms;if(keys.Escape)G.escLatch=true;b.i+=b.d;if(b.i>=100||b.i<=0)blkEnd();else blkCheck();}}
+// "while(GetAsyncKeyState(k)&0x8000);": nothing runs until the key is up
+function waitUp(test,fn){G.wait={test,fn};}
+// cursor keys with the latch 0x4966ab: one step per press
+function stepKeys(max,withSound,lr){const u=keys.ArrowUp,d=keys.ArrowDown;
+  if(u&&G.sel>0&&!G.latch){G.latch=true;G.sel--;if(withSound)sfx('hit');}
+  if(d&&G.sel<max&&!G.latch){G.latch=true;G.sel++;if(withSound)sfx('hit');}}
+const noCursor=()=>!keys.ArrowUp&&!keys.ArrowDown&&!keys.ArrowLeft&&!keys.ArrowRight;
+
+// ---------- songs: 0x49486c holds the number of the loaded one
+const SONGS=['title','credits','highscore','level1','level2','level3','level4','level5','level6','boss','clear'];
+const SONG_ID={title:1,credits:2,highscore:3,level1:4,level2:5,level3:6,level4:7,level5:8,level6:9,boss:10,end:11,clear:12};
+
+// ---------- options (Options.ini): music and sound volume 0..100, the highscore effect, smoke behind debris
+const OPTS={music:100,sound:100,effect:true,smoke:false};
+try{Object.assign(OPTS,JSON.parse(localStorage.getItem('takatis.options'))||{});}catch(e){}
+function optsApply(){OPT.smoke=OPTS.smoke;G.sfxVol=OPTS.sound/100;MUSIC.vol=0.55*OPTS.music/100;}
+function optsSave(){try{localStorage.setItem('takatis.options',JSON.stringify(OPTS));}catch(e){}}
+
+// ---------- stars (0x424100): with a chance of 1 in 10 a star appears in the first free of 200 slots at a random place
+// (mode 1: x 20..599, y 40..134; mode 2: x 20..639, y 40..499) and shows the 8 frames of star.gfx, 5 frames each
+const STARS=Array.from({length:201},()=>({on:false,x:0,y:0,f:0,c:0,d:0}));
+function stars(mode){const rx=mode===1?580:620,ry=mode===1?95:460;
+  if(R(10)===0){let k=0;while(STARS[k].on&&k<200)k++;const s=STARS[k];s.on=true;s.x=R(rx)+20;s.y=R(ry)+40;s.f=0;s.d=5;s.c=5;}
+  for(let k=0;k<200;k++){const s=STARS[k];if(!s.on)continue;
+    if(--s.c===0){s.c=s.d;if(++s.f>=8)s.on=false;}
+    const c=s.f%3,r=Math.floor(s.f/3);bf('star',c*24,r*24,c*24+24,r*24+24,s.x,s.y);}}
+
+// ---------- start (state 2, 0x429340): the Poke53280 logo, the loading screen, two intro pictures and the title, each
+// faded in and out. From the first intro picture on (0x494898 > 3) Escape skips to the title.
+function introPic(n){black();const ir=(l,t,r,b,x,y)=>bf('intro',l,t,r,b,x,y),skip=()=>text('Escape to skip',500,460,0);
+  if(n===0){bw('pl',73,160);bw('loading',180,280);}
+  else if(n===1){ir(0,0,395,97,123,192);bw('loading',180,280);}
+  else if(n===2){ir(0,105,450,205,95,190);skip();}
+  else if(n===3){ir(0,300,475,360,103,90);ir(0,212,602,293,19,160);ir(454,29,609,97,243,250);bw('intro2',72,340);skip();}
+  else bw('title',0,0);}
+function introStep(){const s=G.sub,next=n=>()=>{G.sub=n;introEsc();};
+  if(s===0){sfx('v_intro');onScr(()=>introPic(0));fadeIn(50,next(1));}
+  else if(s===1){onScr(()=>introPic(0));fadeOut(30,next(2));}
+  else if(s===2){onScr(()=>introPic(1));fadeIn(50,next(3));}
+  else if(s===3){onScr(()=>introPic(1));musicPlay('title');fadeOut(30,next(4));}
+  else if(s===4){onScr(()=>introPic(2));fadeIn(50,next(5));}
+  else if(s===5){onScr(()=>introPic(2));fadeOut(30,next(6));}
+  else if(s===6){onScr(()=>introPic(3));fadeIn(50,next(7));}
+  else if(s===7){onScr(()=>introPic(3));fadeOut(60,next(8));}
+  else if(s===8){onScr(()=>introPic(4));fadeIn(20,next(9));}
+  else introEsc();}
+function introEsc(){if((keys.Escape&&G.sub>3)||G.sub===9||(G.sub>3&&G.escLatch)){G.state='title';onScr(()=>bw('title',0,0));}}
+
+// ---------- title (state 3, 0x4203a0): title.gfx and logo.gfx on top, every one of its 140 rows moved sideways by
+// sin(row*0.01+phase)*180 (the phase runs 0..30 and back in steps of 0.01), stars; Space, Return or Escape lead to the
+// menu once released; E+N+D pressed together start the end sequence
+const TITLE={ph:0,up:false};   // 0x496718, 0x49671c
+function titleStep(){G.bossActive=false;
+  if(keys.KeyE&&keys.KeyN&&keys.KeyD){if(!P)P=newPlayer();endStart();return;}
+  if(G.song!==1)musicPlay('title');
+  const F01=Math.fround(0.01);
+  onScr(()=>{black();bw('title',0,0);
+    for(let r=0;r<140;r++){const v=Math.sin(r*F01+TITLE.ph)*180,vi=Math.trunc(v);
+      if(v>=0)bf('logo',0,r,640-vi,r+1,vi,r+17);else bf('logo',-vi,r,640,r+1,0,r+17);}
+    if(!TITLE.up){TITLE.ph=Math.fround(TITLE.ph+F01);if(!(TITLE.ph<30))TITLE.up=true;}
+    if(TITLE.up){TITLE.ph=Math.fround(TITLE.ph-F01);if(TITLE.ph<=0)TITLE.up=false;}
+    stars(1);});
+  const go=test=>waitUp(test,()=>{G.state='menu';sfx('beam');});
+  if(keys.Space)go(()=>keys.Space);else if(enter())go(enter);else if(keys.Escape)go(()=>keys.Escape);}
+
+// ---------- menu (state 0, 0x420900): six entries of menu.gfx in a frame, the chosen one lit; Escape back to the title
+function menuStep(){onScr(()=>{rahmen(160,40,9,12);bf('menu',0,0,224,384,208,60);bf('menu',224,G.sel*64,448,G.sel*64+64,208,G.sel*64+60);});
+  if(!keys.ArrowUp&&!keys.ArrowDown)G.latch=false;
+  stepKeys(5,true);
+  if(keys.Escape){waitUp(()=>keys.Escape,()=>{G.state='title';sfx('beam');});return;}
+  if(enter()||keys.Space)waitUp(()=>enter()||keys.Space,menuPick);}
+function menuPick(){const s=G.sel;G.sel=0;
+  if(s===0){G.slots=loadSlots();G.state='newgame';}   // 0x421fd0 reads the six save files
+  else if(s===1)G.state='options';
+  else if(s===2)G.state='help';
+  else if(s===3)G.state='hiscore';
+  else if(s===4){CRED.init=false;G.state='credits';}
+  else fadeOut(5,()=>{musicStop();MUSIC.want=null;G.state='boot';G.sub=0;});}   // "Beenden": the program ends
+
+// ---------- save slots (Takatis.SG1..6, 48 bytes each, every value +0x1966): stage, skill, weapon, the three weapon
+// stages, rockets, powerlines, lives, shield time, score, cheater flag. An empty slot has stage -1.
+const SLOT0={level:-1,skill:0,weapon:0,spread:1,laser:0,bounce:0,rockets:0,lines:0,lives:0,shield:0,score:0,cheater:0};
+function loadSlots(){const a=[];for(let i=0;i<6;i++){let v=null;try{v=JSON.parse(localStorage.getItem('takatis.slot'+i));}catch(e){}
+    if(v&&v.lvl){v={level:v.level,skill:v.diff,weapon:v.weapon,spread:v.lvl[0],laser:v.lvl[1],bounce:v.lvl[2],rockets:v.rockets,lines:v.lines,lives:v.lives,shield:0,score:v.score,cheater:0};}   // earlier remake format
+    a.push(v&&typeof v.level==='number'?{...SLOT0,...v}:{...SLOT0});}
+  return a;}
+function saveSlot(i,v){try{localStorage.setItem('takatis.slot'+i,JSON.stringify(v));}catch(e){}}
+// one row of the slot table (new game 0x4227a3, save screen 0x423400)
+function slotRow(v,i,y){
+  if(v.level<0)text('-- empty Slot --',255,y,0);
+  else{text(String(Math.trunc(v.level/2)+1),153,y,0);text('-',165,y,0);text(String(v.level%2+1),177,y,0);text(String(v.lives),210,y,0);
+    for(const [x,n] of [[240,v.spread],[285,v.bounce],[330,v.laser]])for(let k=0;k<n;k++)bw('ws',x+k*6,y);
+    text(String(v.rockets),375,y,0);text(String(v.lines),420,y,0);
+    if(v.skill===0)text('Easy',455,y,2);else if(v.skill===1)text('Norm',455,y,4);else text('Hard',455,y,1);
+    if(!v.cheater)text(String(v.score),500,y,0);else text('Cheater!',500,y,0);}
+  text(String(i+1),120,y,0);}
+function slotIcons(y){bw('pu_spread',240,y);bw('pu_bounce',285,y);bw('pu_laser',330,y);bw('pu_rocket',375,y);bw('pu_line',420,y);}
+
+// ---------- new game (state 6, 0x422520): skill in the first row, the six save slots below; Escape goes to the title
+function newGameStep(){onScr(()=>{rahmen(64,62,15,10);bf('menu',224,8,448,64,210,78);
+    text('Start a new Game',250,130,1);text('Easy    Normal    Hard',218,155,0);
+    if(G.diff===0)text('Easy',218,155,2);else if(G.diff===1)text('Normal',295,155,4);else text('Hard',388,155,1);
+    text('Continue a saved Game',235,188,1);text('Slot',105,215,0);text('Stage',150,215,0);text('Lives',195,215,0);
+    slotIcons(209);text('Skill Score',455,215,0);
+    for(let i=0;i<6;i++)slotRow(G.slots[i],i,i*25+250);
+    if(G.sel===0)bf('star',48,0,72,24,182,148);else bf('star',48,0,72,24,90,G.sel*25+219);});
+  const l=keys.ArrowLeft,r=keys.ArrowRight;
+  if(G.sel===0){if(l&&G.diff>0&&!G.latch){G.diff--;G.latch=true;sfx('hit');}if(r&&G.diff<2&&!G.latch){G.diff++;G.latch=true;sfx('hit');}}
+  stepKeys(6,true);
+  if(keys.Escape){sfx('beam');G.sel=0;G.state='title';onScr(()=>bw('title',0,0));return;}
+  if(noCursor())G.latch=false;
+  if(keys.Space||enter())waitUp(()=>keys.Space||enter(),newGameGo);}
+function newGameGo(){let v=null;
+  if(G.sel>0){v=G.slots[G.sel-1];if(v.level<0)return;G.diff=v.skill;}
+  G.sel=0;P=newPlayer();G.score=0;G.cheater=0;G.shieldT0=0;
+  if(v){P.weapon=v.weapon;P.lvl=[v.spread,v.laser,v.bounce];P.rockets=v.rockets;P.lines=v.lines;G.lives=v.lives;G.score=v.score;G.cheater=v.cheater;G.shieldT0=v.shield;}
+  else G.lives=[5,4,3][G.diff];
+  G.go=0;G.over=null;startLevel(v?v.level:0);}
+
+// ---------- options (state 4, 0x420ef0): music and sound volume, jukebox, joystick, smoke. Opened with F2 during the
+// game (0x4966ac) only the two volumes can be reached and Escape returns to the game.
+function optionsStep(){const inGame=G.over==='options';
+  onScr(()=>{rahmen(192,92,7,8);bf('menu',224,70,424,128,210,112);bw('volume',250,180);
+    text('Joystick Options',W/2,315,0,1);text('Rauch bei Explosionen',W/2,335,0,1);text(OPTS.smoke?'ein':'aus',408,335,3);
+    const st=[[212,184],[212,216],[212,278],[222,310],[210,330]][G.sel];bf('star',48,0,72,24,st[0],st[1]);
+    bf('volumebar',0,0,OPTS.music,16,321,188);bf('volumebar',0,0,OPTS.sound,16,321,220);
+    text(inGame?' --- ':DATA.songs[G.jukebox],340,288,0);});
+  if(noCursor())G.latch=false;
+  stepKeys(4,true);
+  if(G.sel===2&&inGame)G.sel=1;
+  const l=keys.ArrowLeft,r=keys.ArrowRight;
+  if(G.sel===0){if(l&&OPTS.music>0)OPTS.music--;if(r&&OPTS.music<100)OPTS.music++;if(!G.bossActive)optsApply();}
+  if(G.sel===1){if(l&&OPTS.sound>0)OPTS.sound--;if(r&&OPTS.sound<100)OPTS.sound++;optsApply();}
+  if(G.sel===2){if(l&&G.jukebox>0&&!G.latch){G.jukebox--;G.latch=true;}if(r&&G.jukebox<10&&!G.latch){G.jukebox++;G.latch=true;}
+    if(enter()&&!G.latch){if(G.song!==SONG_ID[SONGS[G.jukebox]])musicPlay(SONGS[G.jukebox]);G.latch=true;}}
+  if(G.sel===3&&enter())G.state='joystick';
+  if(G.sel===4&&(l||r)&&!G.latch){OPTS.smoke=!OPTS.smoke;optsApply();G.latch=true;}
+  if(keys.Escape)waitUp(()=>keys.Escape,()=>{sfx('beam');optsSave();
+    if(inGame){G.over=null;return;}
+    G.state='menu';G.sel=1;if(G.song!==1)musicPlay('title');});}
+// joystick (state 11, 0x42ab60): without a joystick only the note; Escape goes back to the options
+function joystickStep(){onScr(()=>{rahmen(160,40,9,12);text('Joystick-Konfiguration fuer:',W/2,60,0,1);text('Kein Joystick angeschlossen !',W/2,80,1,1);});
+  if(keys.Escape){G.state='options';waitUp(()=>keys.Escape,()=>{});}}
+
+// ---------- help (state 5, 0x421cc0, pages 0x40e6e0): five pages, cursor up/down turns them (no sound); F1 opens it
+// during the game
+function helpPage(p){const T=DATA.helpText[p];for(let l=0;l<30;l++)text(T[l],30,l*16+80,0);
+  text('Cursor hoch/runter - blaettern der Seiten   ESC - Hauptmenue',30,450,2);
+  if(p===0){text('Ueber das Spiel',30,80,1);text('Die Story',30,224,1);}
+  else if(p===1){text('Steuerung des Gleiters',30,80,1);
+    ['Cursortasten','Space','Ctrl/Strg','Shift','Return'].forEach((s,i)=>text(s,30,112+i*16,3));text('Weitere Tasten',30,208,1);
+    ['TAB','F1','F2','Escape','1','2','3','Num0'].forEach((s,i)=>text(s,30,240+i*16,3));}
+  else if(p===2){text('Power Ups',30,80,1);text('Primaere Waffensysteme',30,192,1);text('Spread Shot',60,240,1);text('Laser',60,304,1);text('Bounce',60,368,1);
+    for(let i=0;i<3;i++)bf('powerups',i*20,0,i*20+20,20,30,i*64+240);}
+  else if(p===3){text('Zusaetzliche Waffensysteme',30,80,1);text('Rocket',60,112,1);text('Powerline',60,176,1);text('Shield',60,240,1);text('One Up',60,304,1);
+    for(let i=0;i<4;i++)bf('powerups',(i+3)*20,0,(i+3)*20+20,20,30,i*64+112);}
+  else{text('Zusaetzliche Waffensysteme',30,80,1);text('Beam',60,112,1);
+    bf('beammini',16,0,32,8,30,115);bf('beamsmall',32,0,64,16,30,130);bf('beammed',48,0,96,24,30,150);bf('beambig',64,0,128,32,30,180);}
+  text('Seite '+(p+1)+'/5',560,450,2);}
+function helpStep(){onScr(()=>{rahmen(0,0,19,14);bf('menu',224,138,384,192,200,16);helpPage(G.sel);});
+  if(!keys.ArrowUp&&!keys.ArrowDown)G.latch=false;
+  stepKeys(4,false);
+  if(keys.Escape)waitUp(()=>keys.Escape,()=>{sfx('beam');
+    if(G.over==='help'){G.over=null;return;}
+    G.sel=2;G.state='menu';onScr(()=>bw('title',0,0));});}
+
+// ---------- highscores (Highscores.hsl: 10 entries of name, score and a checksum)
+const HS0=[['Poke53280',100000],['Zerbie',90000],['Swordfighter',80000],['QBound',70000],['Manfred Trenz',60000],
+  ['Andreas Escher',50000],['Chris Huelsbeck',40000],['Alex Hertstein',30000],['Seb Kugler',20000],['ZFX-Forum',10000]];
+function hsLoad(){let a=null;try{a=JSON.parse(localStorage.getItem('takatis.hsl'));}catch(e){}
+  return Array.isArray(a)&&a.length===10?a:HS0.map(([name,score])=>({name,score}));}
+function hsSave(a){try{localStorage.setItem('takatis.hsl',JSON.stringify(a));}catch(e){}}
+// highscore list (state 8, 0x4243f0) with the flag effect: F7/F8 switch it on and off (on without Options.ini), F3/F4
+// 1 or 3 rows per line, F5/F6 frequency 0.01 or 0.005. 170 rows of the title are moved diagonally by sin(...)*180; where a
+// row lands above the one before, the back of the flag shows: backside.gfx, which also gets the particles.
+const HSFX={rowH:1,freq:Math.fround(0.01),ph:0,down:false,target:7,back:null};   // 0x4856a4, 0x4856ac, 0x496720, 0x496724, 0x4856a8
+function hiscoreStep(){if(G.song!==3)musicPlay('highscore');
+  const list=hsLoad();
+  onScr(()=>{bw('title',0,0);rahmen(160,40,10,12);bf('menu',224,182,448,246,210,56);
+    for(let i=0;i<10;i++){text((i<9?'0':'')+(i+1)+' - ',190,150+i*20,1);text(list[i].name,240,150+i*20,2);text(String(list[i].score),400,150+i*20,6);}
+    text('F7/F8 - Toggle Effect ('+(OPTS.effect?'On ':'Off')+')',W/2,410,0,1);text('Press F3-F6 for different effects !',W/2,430,0,1);});
+  if(!HSFX.back){HSFX.back=offscreen();}
+  const bg=HSFX.back.getContext('2d');bg.drawImage(S.backside.img,0,0);
+  if(keys.F3)HSFX.rowH=1;if(keys.F4)HSFX.rowH=3;if(keys.F5)HSFX.freq=Math.fround(0.01);if(keys.F6)HSFX.freq=Math.fround(0.005);
+  if(keys.F7)OPTS.effect=true;if(keys.F8)OPTS.effect=false;
+  if(OPTS.effect){particle(320,60-PY,0);particle(5,130-PY,6);particle(580,130-PY,7);partStep();
+    const keep=ctx;ctx=bg;ctx.save();ctx.beginPath();ctx.rect(0,16,640,417);ctx.clip();ctx.translate(0,PY);partDraw();ctx.restore();ctx=keep;   // in state 8 the particles go into the back of the flag
+    onScr(()=>{let prev=0;
+      for(let r=0;r<170;r++){const v=Math.sin(r*HSFX.freq+HSFX.ph)*180,vi=Math.trunc(v),y=r+vi+100,cur=r+v+100;
+        const src=cur>=prev?HSFX.back:S.title.img,sh=src===HSFX.back?170:480,l=v>=0?0:-vi,rr=v>=0?640-vi:640,x=v>=0?vi:0;
+        if(y>=0&&r+HSFX.rowH<=sh)ctx.drawImage(src,l,r,rr-l,HSFX.rowH,x,y,rr-l,HSFX.rowH);
+        prev=cur;}});
+    if(!HSFX.down){HSFX.ph=Math.fround(HSFX.ph+Math.fround(0.01));if(HSFX.target<=HSFX.ph){HSFX.target=R(10);HSFX.down=true;}}
+    if(HSFX.down){HSFX.ph=Math.fround(HSFX.ph-Math.fround(0.01));if(HSFX.ph<=0)HSFX.down=false;}}
+  if(keys.Escape){G.state='menu';sfx('beam');G.sel=0;optsSave();onScr(()=>bw('title',0,0));musicPlay('title');}}
+
+// ---------- credits (state 9, 0x424fd0): creditstile.gfx tiled and scrolled in random directions, two turrets on
+// rails with the particle system, 20 lines of the credits scrolling up on a sine path, stars
+const CRED={init:false,sx:0,sy:0,dx:0,dy:0,dt:0,line:0,off:0,t:0,ty:50,tdown:false,bg:null,wave:null};
+function credWave(){const w=new Int32Array(480);let t=0;   // 0x4949a0, made at start (0x4191cc)
+  for(let y=0;y<240;y++){w[y]=Math.trunc(Math.sin(t)*150);t=Math.fround(t+Math.fround(0.0084));}
+  for(let y=240;y<480;y++)w[y]=-w[y-240]+134;return w;}
+function creditsStep(){const C=CRED;
+  if(!C.init){PART=[];if(!C.bg){C.bg=offscreen();C.wave=credWave();}
+    const g=C.bg.getContext('2d');for(let r=0;r<6;r++)for(let c=0;c<8;c++)g.drawImage(S.creditstile.img,c*80,r*80);
+    Object.assign(C,{init:true,sx:0,sy:0,dt:0,line:0,off:0,t:0});musicPlay('credits');PB.top=0;PB.bottom=480;}
+  if(C.dt===0){C.dt=R(200);if(C.dt<50)C.dt=50;C.dx=R(6)-3;C.dy=R(6)-3;if(C.dx===0&&C.dy===0)C.dx=-2;}
+  let px;do px=R(640);while(px<60||px>400);   // a local that starts as 0xcccccccc every frame, so both pairs share one x
+  for(let k=0;k<2;k++){particle(px,R(10)-10-PY,5);particle(px,R(10)+465-PY,5);}
+  particle(11,C.ty-28-PY,6);particle(562,C.ty-28-PY,7);
+  if(R(50)===1)particle(R(640),R(480)-PY,4);
+  C.sx+=C.dx;C.sy+=C.dy;if(C.sx>=80||C.sx<=-80)C.sx=0;if(C.sy>=80||C.sy<=-80)C.sy=0;
+  C.dt--;
+  const ox=C.sx>0?C.sx:C.sx<0?C.sx+80:0,oy=C.sy>0?C.sy:C.sy<0?C.sy+80:0;
+  onScr(()=>{black();const bb=(l,t,r,b,x,y)=>{if(r>l&&b>t)ctx.drawImage(C.bg,l,t,r-l,b-t,x,y,r-l,b-t);};
+    bb(ox,oy,640,480,0,0);bb(0,oy,ox,480,640-ox,0);bb(ox,0,640,oy,0,480-oy);
+    for(let i=0;i<15;i++){bw('rail',16,i*32);bw('rail',612,i*32);}
+    bf('e10',0,0,44,41,596,C.ty);
+    partStep();ctx.save();ctx.translate(0,PY);partDraw();ctx.restore();
+    bw('creditslogo',480,380);bf('e10',88,0,132,41,0,C.ty);
+    text('      <- Supertolles unglaublich cooles Partikelsystem !!! -',50,C.ty,1);
+    if(C.ty<400&&!C.tdown)C.ty++;if(C.ty>50&&C.tdown)C.ty--;if(C.ty===400&&!C.tdown)C.tdown=true;if(C.ty===50&&C.tdown)C.tdown=false;
+    for(let i=0;i<20;i++){const y=i*25+C.off,s=DATA.credits[i+C.line]||'';text(s,320-Math.trunc(textW(s)/2)+C.wave[Math.max(0,y)]-80,y,0);}
+    if(++C.t===2){C.off--;C.t=0;}if(C.off===-25){C.off=0;if(++C.line===328)C.line=0;}
+    stars(2);});
+  if(keys.Escape)waitUp(()=>keys.Escape,()=>{G.state='menu';sfx('beam');G.sel=0;onScr(()=>bw('title',0,0));C.init=false;musicPlay('title');PB.top=16;PB.bottom=433;});}
+
+// ---------- in the game (state 1): F1 help, F2 options, Escape "Spiel beenden ?" over the frozen picture (0x4176dd)
+function overlays(){if(G.over||G.go)return;
+  const open=o=>{onScr(()=>ctx.drawImage(cv,0,0));sfx('beam');G.over=o;};
+  if(keys.F1){open('help');return;}
+  if(keys.F2){open('options');G.sel=0;return;}
+  if(keys.Escape&&!G.endT){open('quit');G.quitSel=0;}}
+function quitStep(){onScr(()=>{rahmen(160,100,9,4);text('Spiel beenden ?',W/2,130,0,1);if(G.quitSel===1)text('Ja',W/2,210,1,1);else text('Nein',W/2,210,2,1);});
+  if(keys.ArrowLeft||keys.ArrowDown){G.quitSel=0;sfx('hit');waitUp(()=>keys.ArrowLeft||keys.ArrowDown,()=>{});return;}
+  if(keys.ArrowRight||keys.ArrowUp){G.quitSel=1;sfx('hit');waitUp(()=>keys.ArrowRight||keys.ArrowUp,()=>{});return;}
+  if(enter()){if(G.quitSel===1){onScr(()=>bw('title',0,0));G.state='title';sfxStop('shield');sfxStop('bigexplosion');musicPlay('title');}
+    G.over=null;waitUp(enter,()=>{});}}
+
+// ---------- game over (0x416c1d, 0x4966bc 1..3): the game stands still; "Game Over" rises from y=441 at 3 px per frame,
+// then the name for a place in the highscore list, a remark, or a note for cheaters
+const GO={y:0,name:'',cur:0,delay:0,rank:10,shifted:false};   // 0x4966d4, 0x4948e0, 0x494000, 0x493c2c, 0x496714
+function gameOverStep(){
+  if(G.go===1){GO.y=441;G.go=2;GO.cur=0;GO.delay=10;GO.name=' '.repeat(15);musicPlay('highscore');sfxStop('shield');}
+  if(G.go===2){onScr(()=>{black();bw('gameover',100,GO.y);});GO.y-=3;if(GO.y<=0)G.go=3;return;}
+  const list=hsLoad();
+  onScr(()=>{black();rahmen(50,50,16,5);bf('menu',224,182,448,246,210,66);bw('gameover',100,0);stars(2);});
+  if(!G.cheater&&G.score>list[9].score){
+    let rank=10;for(let i=9;i>=0;i--)if(G.score>list[i].score)rank--;GO.rank=rank;
+    if(rank<9&&!GO.shifted){for(let i=9;i>rank;i--)list[i]={...list[i-1]};GO.shifted=true;G.hsList=list;}   // never cleared again (0x496714)
+    GO.delay--;
+    for(let c=65;c<91;c++)if(keys['Key'+String.fromCharCode(c)]&&GO.delay<=0){
+      const ch=keys.ShiftLeft||keys.ShiftRight?String.fromCharCode(c):String.fromCharCode(c+32);
+      GO.name=GO.name.slice(0,GO.cur)+ch+GO.name.slice(GO.cur+1);GO.delay=10;if(GO.cur<14)GO.cur++;}
+    const put=(i,ch)=>{GO.name=GO.name.slice(0,i)+ch+GO.name.slice(i+1);};
+    if(keys.Backspace&&GO.delay<=0){
+      if(GO.cur===14){if(GO.name[14]===' '){put(13,' ');GO.cur--;}put(14,' ');GO.delay=10;}
+      else{if(GO.cur!==0)GO.cur--;put(GO.cur,' ');GO.delay=10;}}
+    if(keys.Space&&GO.delay<=0){put(GO.cur,' ');GO.delay=10;if(GO.cur<14)GO.cur++;}
+    onScr(()=>{text('Du hast Platz   erreicht !!!',210,140,4);text(String(rank+1),323,140,1);text('Enter your Name: ',185,180,2);text(GO.name,325,180,1);});
+    if(enter())waitUp(enter,()=>{const l=G.hsList||list;l[GO.rank]={name:GO.name,score:G.score};hsSave(l);G.hsList=null;
+      G.state='hiscore';onScr(()=>bw('title',0,0));G.go=0;G.cheater=0;G.score=0;});
     return;}
-  if(G.state==='start'){panel(60,60,520,340);
-    drawCenter('START GAME',78,0);
-    drawCenter('START A NEW GAME',110,1);
-    const dn=['EASY','NORMAL','HARD'],dc=[2,4,1];   // green / yellow / red as in the original
-    for(let i=0;i<3;i++)text(dn[i],150+i*130,134,dc[i],1);
-    if(G.startRow===0){const cx=150+G.diff*130,hw=dn[G.diff].length*5;   // markers bracket the chosen skill
-      text('>',cx-hw-12,134,dc[G.diff],1);text('<',cx+hw+12,134,dc[G.diff],1);}
-    drawCenter('CONTINUE A SAVED GAME',166,1);
-    text('SLOT  STAGE LIVES  WEAPONS   SKILL  SCORE',300,190,3,1);
-    for(let i=0;i<SLOTS;i++){const sv=readSlot(i);const y=212+i*28;const sel=G.startRow===i+1;
-      if(sel){ctx.fillStyle='rgba(160,120,40,.25)';ctx.fillRect(70,y-3,500,24);}
-      text(String(i+1),90,y,sel?2:3,1);
-      if(!sv)text('-- EMPTY SLOT --',300,y,sel?2:3,1);
-      else{text(LEVELS[sv.level].stage,160,y,sel?2:3,1);text(String(sv.lives),225,y,sel?2:3,1);
-        for(let w=0;w<3;w++)text(String(sv.lvl[w]),275+w*26,y,sel?2:3,1);
-        text(dn[sv.diff],420,y,[2,4,1][sv.diff],1);text(String(sv.score),520,y,sel?2:3,1);}}
-    return;}
-  if(G.state==='options'){panel(120,120,400,220);drawCenter('OPTIONS',140,0);
-    const rows=[['MUSIK',Math.round(MUSIC.vol*10)],['SOUND',Math.round((G.sfxVol===undefined?1:G.sfxVol)*10)],['SKILL',['EASY','NORMAL','HARD'][G.diff]]];
-    rows.forEach((r,i)=>{const y=190+i*40;text(r[0],200,y,G.optSel===i?0:3,1);text(String(r[1]),380,y,i===2?[2,4,1][G.diff]:(G.optSel===i?0:3),1);});
-    drawCenter('ESC  ZURUECK',310,3);return;}
-  if(G.state==='help'){panel(60,60,520,340);const pg=HELP[G.page];
-    drawCenter(pg[0],86,0);
-    for(let i=1;i<pg.length;i++)text(pg[i],90,124+(i-1)*28,i===1?2:3);
-    drawCenter('SEITE '+(G.page+1)+'/'+HELP.length+'   CURSOR BLAETTERN   ESC',368,3);return;}
-  if(G.state==='hiscore'){panel(140,100,360,260);drawCenter('HIGHSCORE',124,0);
-    drawCenter(String(G.hiscore),180,2);drawCenter('LETZTES SPIEL',230,3);drawCenter(String(G.score),260,3);
-    drawCenter('ESC  ZURUECK',330,3);return;}
-  if(G.state==='credits'){ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(0,0,W,H);
-    CREDITS.forEach((l,i)=>{const y=G.creditY+i*20;if(y>-20&&y<H)text(l,W/2,y,l===l.toUpperCase()&&i<2?0:3,1);});return;}}
-function render(){ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);
-  if(G.state==='title'){ctx.drawImage(S.title.img,0,0);ctx.drawImage(S.logo.img,0,10);if(Math.floor(G.frame/30)%2)drawCenter('PRESS ESC FOR MENU',320,2);drawCenter('HIGHSCORE '+G.hiscore,352,3);return;}
-  if(G.state==='menu'||G.state==='start'||G.state==='options'||G.state==='help'||G.state==='hiscore'||G.state==='credits'){
-    ctx.drawImage(S.title.img,0,0);drawMenus();return;}
+  onScr(()=>{if(!G.cheater)text('Tja, war wohl nix mit Highscore :)',190,150,5);
+    else{text('Denkst Du wirklich, dass Du als',200,150,1);text('Cheater ne Highscore verdient hast?',185,170,1);}});
+  if(enter()){G.state='hiscore';onScr(()=>bw('title',0,0));G.go=0;G.cheater=0;G.score=0;}}
+
+// ---------- render
+function render(){
+  const gam=()=>{if(G.gamma<100){ctx.fillStyle='rgba(0,0,0,'+(1-G.gamma/100)+')';ctx.fillRect(0,0,W,H);}};
+  if(G.blk){ctx.drawImage(G.blk.img,0,0);gam();return;}
+  if(G.state==='boot'){ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);text('Klicken oder Taste druecken',W/2,232,0,1);return;}   // the browser needs a gesture for sound
+  if(onShell()){ctx.drawImage(SCR,0,0);gam();return;}
   if(G.state==='end'){drawEnd();return;}
-  if(G.state==='fadeout')ctx.drawImage(G.fade.img,0,0);
-  else if(G.state==='ready'){   // intro (0x416301): black playfield, HUD, "Get ready" and the three lines of the stage
-    drawHUD();frame('getready',0,160,180);for(const [y,s,c] of DATA.intro[G.level])drawCenter(s,y,c);}
-  else{if(G.endPhase===2&&G.endT>=50&&WAVE.prev)ctx.drawImage(WAVE.prev,0,PY,W,PH,0,PY,W,PH);else drawPlayfield();drawHUD();}
+  ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);
+  if(G.endPhase===2&&G.endT>=50&&WAVE.prev)ctx.drawImage(WAVE.prev,0,PY,W,PH,0,PY,W,PH);else drawPlayfield();drawHUD();
   if(G.state==='save'){drawSave();return;}
-  else if(G.state==='gameover'){frame('gameover',0,(W-429)/2,180);}
-  else if(G.state==='pause'){ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(0,PY,W,PH);drawCenter('PAUSE',220,0);}
-  else if(G.state==='quit'){const bx=150,by=190,bw=340,bh=110;
-    ctx.fillStyle='rgba(20,10,6,.92)';ctx.fillRect(bx,by,bw,bh);ctx.strokeStyle='#8a6a3a';ctx.lineWidth=2;ctx.strokeRect(bx+.5,by+.5,bw-1,bh-1);
-    drawCenter('SPIEL BEENDEN ?',by+22,0);
-    text('JA',bx+95,by+68,G.quitSel?1:0,1);text('NEIN',bx+245,by+68,G.quitSel?0:2,1);}
-  if(G.gamma<100){ctx.fillStyle='rgba(0,0,0,'+(1-G.gamma/100)+')';ctx.fillRect(0,0,W,H);}}
+  if(G.paused){ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(0,PY,W,PH);text('PAUSE',W/2,220,0,1);}   // remake: P
+  gam();}
+// stage intro (0x416301): the "online" voice, black playfield with the HUD, "Get ready" and the three lines of the
+// stage, faded in with 100 steps of 6 ms, then 2 s wait
+function drawReady(){black();drawHUD();frame('getready',0,160,180);for(const [y,s,c] of DATA.intro[G.level])text(s,W/2,y,c,1);}
 
 // ---------- main loop
-function step(){G.frame++;musicTick();if(G.state==='title'&&MUSIC.want!=='title')musicPlay('title');
-  if(pressed.KeyM){muted=!muted;if(muted)for(const k in VOICE)sfxStop(k);}if(pressed.Minus||pressed.NumpadSubtract){MUSIC.vol=Math.max(0,MUSIC.vol-0.1);}if(pressed.Equal||pressed.NumpadAdd){MUSIC.vol=Math.min(1,MUSIC.vol+0.1);}
-  if(pressed.F1)G.info=!G.info;
+function step(){G.frame++;musicTick();
+  // remake helpers: M sound on/off, -/+ music volume, F9 info mode
+  if(pressed.KeyM){muted=!muted;if(muted)for(const k in VOICE)sfxStop(k);}
+  if(pressed.Minus||pressed.NumpadSubtract){OPTS.music=Math.max(0,OPTS.music-10);optsApply();optsSave();}
+  if(pressed.Equal||pressed.NumpadAdd){OPTS.music=Math.min(100,OPTS.music+10);optsApply();optsSave();}
+  if(pressed.F9)G.info=!G.info;
+  if(G.blk){blkStep();pressed={};return;}
+  if(G.wait){if(!G.wait.test()){const f=G.wait.fn;G.wait=null;f();}pressed={};return;}
   switch(G.state){
-    case 'menu':{
-      if(pressed.ArrowUp)G.menuSel=(G.menuSel+MENU_ITEMS.length-1)%MENU_ITEMS.length;
-      if(pressed.ArrowDown)G.menuSel=(G.menuSel+1)%MENU_ITEMS.length;
-      if(pressed.Escape)G.state='title';
-      if(pressed.Enter||pressed.Space){const it=MENU_ITEMS[G.menuSel];
-        if(it==='start'){G.state='start';G.startRow=0;G.slotSel=0;}
-        else if(it==='options'){G.state='options';G.optSel=0;}
-        else if(it==='help'){G.state='help';G.page=0;}
-        else if(it==='highscore')G.state='hiscore';
-        else if(it==='credits'){G.state='credits';G.creditY=PH;}
-        else if(it==='quit')G.state='title';}
-      break;}
-    case 'start':{
-      if(pressed.ArrowUp)G.startRow=Math.max(0,G.startRow-1);
-      if(pressed.ArrowDown)G.startRow=Math.min(SLOTS,G.startRow+1);
-      if(G.startRow===0){if(pressed.ArrowLeft)G.diff=Math.max(0,G.diff-1);if(pressed.ArrowRight)G.diff=Math.min(2,G.diff+1);}
-      if(pressed.Escape)G.state='menu';
-      if(pressed.Enter||pressed.Space){
-        if(G.startRow===0){G.lives=START_LIVES[G.diff];G.score=0;P=null;G.slot=null;startLevel(0);}
-        else{const sv=readSlot(G.startRow-1);
-          if(sv){G.diff=sv.diff;G.lives=sv.lives;G.score=sv.score;G.slot=G.startRow-1;P=newPlayer();P.lvl=sv.lvl.slice();P.weapon=sv.weapon;P.rockets=sv.rockets;P.lines=sv.lines;startLevel(sv.level);}
-          else{G.lives=START_LIVES[G.diff];G.score=0;P=null;G.slot=G.startRow-1;startLevel(0);}}}
-      break;}
-    case 'options':{
-      if(pressed.ArrowUp)G.optSel=(G.optSel+2)%3;if(pressed.ArrowDown)G.optSel=(G.optSel+1)%3;
-      if(pressed.ArrowLeft||pressed.ArrowRight){const d=pressed.ArrowRight?1:-1;
-        if(G.optSel===0)MUSIC.vol=Math.max(0,Math.min(1,MUSIC.vol+d*0.1));
-        else if(G.optSel===1)G.sfxVol=Math.max(0,Math.min(1,(G.sfxVol===undefined?1:G.sfxVol)+d*0.1));
-        else G.diff=Math.max(0,Math.min(2,G.diff+d));}
-      if(pressed.Escape||pressed.Enter)G.state='menu';
-      break;}
-    case 'help':{
-      if(pressed.ArrowDown||pressed.ArrowRight)G.page=Math.min(HELP.length-1,G.page+1);
-      if(pressed.ArrowUp||pressed.ArrowLeft)G.page=Math.max(0,G.page-1);
-      if(pressed.Escape||pressed.Enter)G.state='menu';
-      break;}
-    case 'hiscore':{if(pressed.Escape||pressed.Enter||pressed.Space)G.state='menu';break;}
-    case 'credits':{G.creditY-=0.6;if(pressed.Escape||pressed.Enter||G.creditY<-CREDITS.length*18-40)G.state='menu';break;}
-    case 'title':   // the title screen only waits; a game is always started from the menu
-      if(pressed.Escape||pressed.Enter||pressed.Space){G.state='menu';G.menuSel=0;}break;
-    case 'ready':{G.timer++;if(G.timer===1)sfx('v_online');   // then 100 gamma steps of 6 ms (0x4124f0) and 2 s (0x425bd0)
-      const ms=(G.timer-1)*1000/FPS;G.gamma=ms<600?Math.floor(ms/6):100;if(ms>=2600){G.gamma=100;G.state='play';}break;}
-    case 'fadeout':fadeStep();break;
+    case 'boot':{const any=()=>Object.values(keys).some(v=>v);
+      if(any()||G.clicked){G.clicked=false;waitUp(any,()=>{G.state='intro';G.sub=0;});}break;}
+    case 'intro':introStep();break;
+    case 'title':titleStep();break;
+    case 'menu':menuStep();break;
+    case 'newgame':newGameStep();break;
+    case 'options':optionsStep();break;
+    case 'joystick':joystickStep();break;
+    case 'help':helpStep();break;
+    case 'hiscore':hiscoreStep();break;
+    case 'credits':creditsStep();break;
+    case 'ready':
+      if(G.timer===0){sfx('v_online');onScr(drawReady);G.timer=1;fadeIn(6,null);break;}
+      if(++G.timer>150)G.state='play';break;   // wait 2 s (0x425bd0)
     case 'save':saveStep();break;
-    case 'play':if(pressed.Escape){G.state='quit';G.quitSel=0;break;}
-    if(pressed.KeyP){G.state='pause';break;}if(pressed.F2){if(G.bossActive)V.w32(0x494050,0);else if(G.scroll<=G.maxScroll)G.scroll=G.maxScroll+1;}updatePlay();break;
-    case 'pause':if(pressed.KeyP||pressed.Escape)G.state='play';break;
-    case 'quit':
-      if(pressed.ArrowLeft||pressed.ArrowRight||pressed.ArrowUp||pressed.ArrowDown)G.quitSel=G.quitSel?0:1;
-      if(pressed.Escape)G.state='play';
-      if(pressed.Enter||pressed.Space){if(G.quitSel){G.hiscore=Math.max(G.hiscore,G.score);try{localStorage.setItem('takatis.hiscore',G.hiscore);}catch(e){}G.state='menu';G.menuSel=0;musicPlay('title');}else G.state='play';}
-      break;
-    case 'gameover':G.timer--;if(G.timer<=0||pressed.Enter){G.hiscore=Math.max(G.hiscore,G.score);try{localStorage.setItem('takatis.hiscore',G.hiscore);}catch(e){}G.state='menu';G.menuSel=0;musicPlay('title');}break;
+    case 'play':
+      if(G.go){gameOverStep();break;}
+      if(G.over){if(G.over==='help')helpStep();else if(G.over==='options')optionsStep();else quitStep();break;}
+      if(G.paused){if(pressed.KeyP)G.paused=false;break;}   // remake: P pauses
+      if(pressed.KeyP){G.paused=true;break;}
+      if(pressed.F4){if(G.bossActive)V.w32(0x494050,0);else if(G.scroll<=G.maxScroll)G.scroll=G.maxScroll+1;}   // remake: skip the stage
+      updatePlay();overlays();break;
     case 'end':endStep();break;
   }
   pressed={};}
 let acc=0,last=performance.now();
 function loop(now){try{const dt=Math.min(100,now-last);last=now;acc+=dt;let n=0;while(acc>=1000/FPS&&n<4){step();acc-=1000/FPS;n++;}render();}catch(e){window.__lastErr=String(e)+' | '+(e.stack||'');console.error(e);}requestAnimationFrame(loop);}
-loadAssets().then(()=>{msg.hidden=true;cv.focus();try{G.hiscore=+localStorage.getItem('takatis.hiscore')||0;}catch(e){}
-  setInterval(()=>{try{localStorage.setItem('takatis.hiscore',G.hiscore);}catch(e){}},5000);requestAnimationFrame(loop);});
+loadAssets().then(()=>{msg.hidden=true;cv.focus();optsApply();requestAnimationFrame(loop);});
 })();
 </script>

@@ -76,6 +76,9 @@ SPRITES = {
     'hudtop': ('hud-oben', 640, 16), 'ws': ('ws', 7, 10), 'hudbottom': ('hud-unten', 640, 48), 'energy': ('player-energy', 56, 9),
     'font': ('font', 10, 14), 'font2': ('font2', 8, 10), 'bigfont': ('bigfont', 32, 32),
     'title': ('title', 640, 480), 'getready': ('getready', 329, 56), 'gameover': ('gameover', 429, 56), 'logo': ('logo', 640, 140),
+    'intro': ('intro', 619, 371), 'intro2': ('intro2', 497, 52), 'pl': ('pl', 494, 75), 'backside': ('backside', 640, 170),
+    'creditstile': ('creditstile', 80, 80), 'creditslogo': ('CreditsLogo', 160, 100), 'volume': ('volume', 192, 128),
+    'volumebar': ('volumebar', 100, 16),
     'endscreen': ('Endscreen', 640, 480), 'fadeleft': ('fadeleft', 120, 480), 'faderight': ('faderight', 120, 480), 'menu': ('menu', 224, 64), 'rahmen': ('rahmen', 32, 32), 'loading': ('loading', 280, 146),
     # enemies by type
     'e0': ('asteroid', 64, 54), 'e1': ('Razorback', 52, 32), 'e2': ('spinner', 56, 46), 'e9': ('container', 36, 46),
@@ -87,7 +90,8 @@ SPRITES = {
     'e30': ('bumper', 40, 40), 'e31': ('timebomb', 48, 48), 'e32': ('sharpshooter', 32, 32), 'e33': ('containerfake', 36, 61),
     'dragontail': ('dragontail', 40, 40), 'drive': ('drive', 16, 16), 'rail': ('rail', 11, 32),
 }
-NOKEY = {'title', 'endscreen', 'loading', 'ws'}
+NOKEY = {'title', 'endscreen', 'loading', 'ws', 'pl', 'backside', 'intro', 'intro2', 'menu', 'volume', 'volumebar', 'rahmen',
+         'hudtop', 'hudbottom', 'beamload', 'creditstile', 'rail', 'energy'}
 
 data = {'sprites': {}, 'themes': {}, 'levels': [], 'sounds': {}}
 for k, (f, fw, fh) in SPRITES.items():
@@ -120,7 +124,7 @@ SOUNDS = {'explosion': 'Explosion', 'bigexplosion': 'bigexplosion', 'spread': 'S
 for k, f in SOUNDS.items():
     p = os.path.join(ROOT, 'assets', 'Sfx', f + '.wav')
     data['sounds'][k] = 'data:audio/wav;base64,' + base64.b64encode(open(p, 'rb').read()).decode()
-SPEECH = {'online': 'online', 'oneup': '1up', 'spread': 'spread', 'laser': 'laser', 'bounce': 'bounce', 'shield': 'shield', 'homing': 'homing', 'line': 'line', 'bigone': 'bigone'}
+SPEECH = {'intro': 'Intro', 'cheat': 'cheat', 'online': 'online', 'oneup': '1up', 'spread': 'spread', 'laser': 'laser', 'bounce': 'bounce', 'shield': 'shield', 'homing': 'homing', 'line': 'line', 'bigone': 'bigone'}
 for k, f in SPEECH.items():
     p = os.path.join(ROOT, 'assets', 'Speech', f + '.wav')
     data['sounds']['v_' + k] = 'data:audio/wav;base64,' + base64.b64encode(open(p, 'rb').read()).decode()
@@ -186,6 +190,24 @@ for ins in _md.disasm(_img[0x4163ea - _pe.OPTIONAL_HEADER.ImageBase:0x416a12 - _
 assert all(len(x) == 3 for x in data['intro'])
 # proportional font (0x40e2a0, width 0x40e0e0): advance = width[c]+1, a space adds 10
 data['fontW'] = list(struct.unpack('<128i', _img[0x484820 - _pe.OPTIONAL_HEADER.ImageBase:0x484a20 - _pe.OPTIONAL_HEADER.ImageBase]))
+# help pages (0x40e6e0): 5 pages of 30 lines of 100 characters at 0x480e0c
+_hb = 0x480e0c - _pe.OPTIONAL_HEADER.ImageBase
+data['helpText'] = [[_img[_hb + p * 3000 + l * 100:_hb + p * 3000 + l * 100 + 100].split(b'\0')[0].decode('latin-1')
+                     for l in range(30)] for p in range(5)]
+# credits (state 9): 0x426ba0 fills the line table 0x494184 one entry after the other
+_cred, _ci = {}, 0
+for ins in _md.disasm(_img[0x426bb8 - _pe.OPTIONAL_HEADER.ImageBase:0x42a250 - _pe.OPTIONAL_HEADER.ImageBase], 0x426bb8):
+    ops = ins.operands
+    if ins.mnemonic == 'ret':
+        break
+    if ins.mnemonic == 'mov' and ops[0].type == capstone.x86.X86_OP_MEM and ops[0].mem.disp == 0x494184:
+        _cred[_ci] = _cstr(ops[1].imm)
+    elif ins.mnemonic == 'add' and ops[0].type == capstone.x86.X86_OP_REG and ops[1].type == capstone.x86.X86_OP_IMM and ops[1].imm == 1:
+        _ci += 1
+data['credits'] = [_cred.get(i, '') for i in range(max(_cred) + 1)]
+assert len(data['credits']) == 351 and data['credits'][23].startswith('-* Takatis')
+# jukebox titles (options, 0x4211b8): 15 characters each from 0x480d60
+data['songs'] = [_cstr(0x480d60 + 15 * i) for i in range(11)]
 
 # the end (0x42a250): Level/ot.lvl is an enemy parade whose foreground tiles come from bigfont.gfx; below it runs
 # the text at 0x4766d8
