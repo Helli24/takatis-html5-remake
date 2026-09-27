@@ -13,7 +13,7 @@
 <div id="wrap"><canvas id="c" width="640" height="480" tabindex="0"></canvas><div id="msg">LOADING…</div></div>
 <div class="bar">
   <span><kbd>←↑↓→</kbd> fliegen</span><span><kbd>Space</kbd> Primärwaffe</span><span><kbd>Strg</kbd> Beam laden</span><span><kbd>Shift</kbd> Rakete</span><span><kbd>Enter</kbd> Powerline</span>
-  <span><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> Spread/Laser/Bounce</span><span><kbd>P</kbd> Pause</span><span><kbd>F1</kbd> Infomodus</span><span><kbd>F2</kbd> Stage überspringen</span><span><kbd>M</kbd> Sound</span><span><kbd>-</kbd><kbd>+</kbd> Musik</span>
+  <span><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> Spread/Bounce/Laser</span><span><kbd>F1</kbd> Hilfe</span><span><kbd>F2</kbd> Lautstärke</span><span><kbd>Esc</kbd> Spiel beenden</span><span><kbd>P</kbd> Pause</span><span><kbd>F4</kbd> Stage überspringen</span><span><kbd>Tab</kbd> Konsole</span><span><kbd>F9</kbd> Infomodus</span><span><kbd>M</kbd> Sound</span><span><kbd>-</kbd><kbd>+</kbd> Musik</span>
 </div>
 <script>var __wasmBytes=(function(){const b=atob('/*WASM_B64*/'),a=new Uint8Array(b.length);for(let i=0;i<b.length;i++)a[i]=b.charCodeAt(i);return a.buffer;})();var libopenmpt={wasmBinary:__wasmBytes,instantiateWasm:function(info,receive){WebAssembly.instantiate(__wasmBytes,info).then(function(r){window.__wasmInst=r.instance;window.__wasmInfo=info;receive(r.instance,r.module);}).catch(function(e){console.error('libopenmpt wasm',e);});return {};},onRuntimeInitialized:function(){window.__mptReady=true;}};</script>
 <script>/*LIBOPENMPT*/</script>
@@ -21,31 +21,40 @@
 const DATA = /*DATA*/;
 (function(){
 'use strict';
-const W=640,H=480,PY=16,PH=416,FPS=60;
-const cv=document.getElementById('c'),ctx=cv.getContext('2d');ctx.imageSmoothingEnabled=false;
+const W=640,H=480,PY=16,PH=416,FPS=75;
+const cv=document.getElementById('c');let ctx=cv.getContext('2d');ctx.imageSmoothingEnabled=false;
 const msg=document.getElementById('msg');
 function fit(){const s=Math.max(1,Math.floor(Math.min((innerWidth-16)/W,(innerHeight-60)/H)));cv.style.width=W*s+'px';cv.style.height=H*s+'px';}
 addEventListener('resize',fit);fit();
 
 // ---------- assets
-const S={};const T={};
+const S={};const T={};const SKIN={};
 function loadImg(src){return new Promise(r=>{const i=new Image();i.onload=()=>r(i);i.src=src;});}
 async function loadAssets(){
   for(const k in DATA.sprites){const d=DATA.sprites[k];S[k]={...d,img:await loadImg(d.src)};}
   for(const t in DATA.themes){T[t]={};for(const k of ['tsa','tsb','stc'])T[t][k]=await loadImg(DATA.themes[t][k]);}
+  for(const k in DATA.skins)SKIN[k]=await loadImg(DATA.skins[k]);
+  T[7]={tsa:S.bigfont.img};   // the end uses bigfont.gfx as its foreground tiles
 }
 function b64(s){const b=atob(s),a=new Uint8Array(b.length);for(let i=0;i<b.length;i++)a[i]=b.charCodeAt(i);return a;}
 const PATHS=DATA.paths;
 const LEVELS=DATA.levels.map(l=>({...l,A:b64(l.A),B:b64(l.B)}));
+const OUTRO_LV={...DATA.outro,A:b64(DATA.outro.A),B:b64(DATA.outro.B)};   // level 12: the end
 
 // ---------- audio
 let AC=null;const buffers={};let muted=false;
 async function initAudio(){if(AC)return;AC=new (window.AudioContext||window.webkitAudioContext)();
   for(const k in DATA.sounds){try{const bin=b64(DATA.sounds[k].split(',')[1]);buffers[k]=await AC.decodeAudioData(bin.buffer.slice(0));}catch(e){}}}
-const lastPlay={};function sfx(name,vol=0.6,rate=1){if(!AC||muted||!buffers[name])return;vol*=(G.sfxVol===undefined?1:G.sfxVol);if(vol<=0)return;const now=AC.currentTime;if(lastPlay[name]&&now-lastPlay[name]<0.045)return;lastPlay[name]=now;const s=AC.createBufferSource();s.buffer=buffers[name];s.playbackRate.value=rate;const g=AC.createGain();g.gain.value=vol;s.connect(g);g.connect(AC.destination);s.start();}
+// sound (0x414d00): one DirectSound buffer per sound, so playing a sound again restarts it; every sound plays at the
+// volume of the options ((100-v)*-30 hundredths of a dB). The shield hum (0x11) loops until it is stopped.
+const VOICE={};
+function sfxStop(name){const s=VOICE[name];if(s){VOICE[name]=null;try{s.stop();}catch(e){}}}
+function sfx(name,loop){if(!AC||muted||!buffers[name])return;const v=G.sfxVol===undefined?1:G.sfxVol;sfxStop(name);
+  const s=AC.createBufferSource(),g=AC.createGain();s.buffer=buffers[name];s.loop=!!loop;g.gain.value=Math.pow(10,-(1-v)*1.5);
+  s.connect(g);g.connect(AC.destination);s.onended=()=>{if(VOICE[name]===s)VOICE[name]=null;};s.start();VOICE[name]=s;}
 
 // ---------- music (original .it modules rendered by libopenmpt)
-const MUSIC={cur:null,node:null,ptr:0,left:0,right:0,gain:null,want:null,vol:0.55};
+const MUSIC={cur:null,node:null,ptr:0,left:0,right:0,gain:null,want:null,vol:0.55,level:1};
 let __mptMemory=null;
 function mptMem(){if(libopenmpt.HEAPU8)return libopenmpt.HEAPU8.buffer;if(__mptMemory)return __mptMemory.buffer;const inst=window.__wasmInst;if(!inst)return null;
   for(const k in inst.exports){if(inst.exports[k] instanceof WebAssembly.Memory){__mptMemory=inst.exports[k];return __mptMemory.buffer;}}
@@ -54,7 +63,7 @@ function mptU8(){return new Uint8Array(mptMem());}function mptF32(){return new F
 function mptOk(){return window.__mptReady&&typeof libopenmpt!=='undefined'&&libopenmpt._openmpt_module_create_from_memory2&&mptMem();}
 function musicStop(){if(MUSIC.node){try{MUSIC.node.disconnect();}catch(e){}MUSIC.node.onaudioprocess=null;MUSIC.node=null;}
   if(MUSIC.ptr){libopenmpt._openmpt_module_destroy(MUSIC.ptr);MUSIC.ptr=0;}MUSIC.cur=null;}
-function musicPlay(name){MUSIC.want=name;if(!AC||!mptOk()||!DATA.music[name]){return;}if(MUSIC.cur===name)return;musicStop();
+function musicPlay(name){MUSIC.want=name;MUSIC.level=1;G.song=SONG_ID[name]||0;if(!AC||!mptOk()||!DATA.music[name]){return;}if(MUSIC.cur===name)return;musicStop();
   const M=libopenmpt;const bytes=b64(DATA.music[name].split(',')[1]);const fp=M._malloc(bytes.length);mptU8().set(bytes,fp);
   const ptr=M._openmpt_module_create_from_memory2(fp,bytes.length,0,0,0,0,0,0,0);M._free(fp);if(!ptr)return;
   M._openmpt_module_set_repeat_count(ptr,-1);
@@ -65,344 +74,778 @@ function musicPlay(name){MUSIC.want=name;if(!AC||!mptOk()||!DATA.music[name]){re
     const L=out.getChannelData(0),R=out.getChannelData(1);const F=mptF32();L.set(F.subarray(MUSIC.left/4,MUSIC.left/4+n));R.set(F.subarray(MUSIC.right/4,MUSIC.right/4+n));
     for(let i=n;i<N;i++){L[i]=0;R[i]=0;}};
   node.connect(MUSIC.gain);MUSIC.node=node;MUSIC.ptr=ptr;MUSIC.cur=name;}
-function musicTick(){if(MUSIC.want&&MUSIC.cur!==MUSIC.want&&AC&&mptOk())musicPlay(MUSIC.want);if(MUSIC.gain)MUSIC.gain.gain.value=muted?0:MUSIC.vol;}
-// ---------- 3D bosses (WebGL, drawn into the 2D playfield)
-const GL={cv:null,gl:null,prog:null,meshes:{},tex:{},ready:false};
-function glInit(){if(GL.ready)return true;try{const c=document.createElement('canvas');c.width=W;c.height=PH;const gl=c.getContext('webgl',{alpha:true,premultipliedAlpha:false,antialias:true});if(!gl)return false;
-  const vs=`attribute vec3 p;attribute vec3 n;attribute vec2 t;uniform mat4 mvp;uniform mat4 m;varying vec3 vn;varying vec2 vt;void main(){gl_Position=mvp*vec4(p,1.0);vn=mat3(m)*n;vt=t;}`;
-  const fs=`precision mediump float;varying vec3 vn;varying vec2 vt;uniform sampler2D s;uniform float useTex;uniform vec3 col;uniform float flash;void main(){vec3 N=normalize(vn);float d=max(dot(N,normalize(vec3(-0.4,0.6,0.7))),0.0);float li=0.35+0.75*d;vec3 c=useTex>0.5?texture2D(s,vt).rgb:col;c=c*li+flash*vec3(0.6,0.2,0.1);gl_FragColor=vec4(c,1.0);}`;
+function musicTick(){if(MUSIC.want&&MUSIC.cur!==MUSIC.want&&AC&&mptOk())musicPlay(MUSIC.want);
+  if(MUSIC.gain)MUSIC.gain.gain.value=muted?0:MUSIC.vol*MUSIC.level;}
+// ---------- end bosses
+// The original boss routine (0x4036d0) runs as translated code: bossAsm below is generated by build.py/bossvm.py from
+// the EXE. What follows is its runtime: byte-exact memory preloaded with the EXE's .rdata/.data, the x86 flags, and
+// handlers for the calls from the routine into the rest of the game (shots, sounds, particles, rendering, blits,
+// pixel collision). Boss logic, timings and attack patterns are therefore the original ones.
+/*BOSSASM*/
+const VMP=new Map();
+function vmPage(a){const k=a>>>16;let p=VMP.get(k);if(!p){p=new DataView(new ArrayBuffer(65536));VMP.set(k,p);}return p;}
+const sxt=(v,n)=>n===1?(v<<24>>24):n===2?(v<<16>>16):(v|0);
+const F={z:false,s:false,o:false,c:false,sw:0,
+  SUB(a,b,n){const r=a-b,q=sxt(r,n),m=n===4?-1:(1<<(8*n))-1;F.z=q===0;F.s=q<0;F.o=q!==r;F.c=((a&m)>>>0)<((b&m)>>>0);return q;},
+  ADD(a,b,n){const r=a+b,q=sxt(r,n),m=n===4?-1:(1<<(8*n))-1;F.z=q===0;F.s=q<0;F.o=q!==r;F.c=((a&m)>>>0)+((b&m)>>>0)>(m>>>0);return q;},
+  AND(a,b,n){const q=sxt(a&b,n);F.z=q===0;F.s=q<0;F.o=F.c=false;return q;},
+  OR(a,b,n){const q=sxt(a|b,n);F.z=q===0;F.s=q<0;F.o=F.c=false;return q;},
+  XOR(a,b,n){const q=sxt(a^b,n);F.z=q===0;F.s=q<0;F.o=F.c=false;return q;},
+  INC(a,n){const r=a+1,q=sxt(r,n);F.z=q===0;F.s=q<0;F.o=q!==r;return q;},
+  DEC(a,n){const r=a-1,q=sxt(r,n);F.z=q===0;F.s=q<0;F.o=q!==r;return q;},
+  NEG(a,n){const r=-a,q=sxt(r,n);F.z=q===0;F.s=q<0;F.o=q!==r;F.c=a!==0;return q;},
+  fcom(a,b){F.sw=a!==a||b!==b?0x4500:a<b?0x100:a===b?0x4000:0;}};   // x87 C0/C2/C3 as fnstsw leaves them in ax
+const V={esp0:0x7ffe8000,
+  r8:a=>vmPage(a).getUint8(a&0xffff),w8:(a,v)=>vmPage(a).setUint8(a&0xffff,v&255),
+  r16:a=>vmPage(a).getUint16(a&0xffff,true),w16:(a,v)=>vmPage(a).setUint16(a&0xffff,v&0xffff,true),
+  r32:a=>vmPage(a).getInt32(a&0xffff,true),w32:(a,v)=>vmPage(a).setInt32(a&0xffff,v|0,true),
+  rf:a=>vmPage(a).getFloat32(a&0xffff,true),wf:(a,x)=>vmPage(a).setFloat32(a&0xffff,x,true),
+  rd:a=>vmPage(a).getFloat64(a&0xffff,true),wd:(a,x)=>vmPage(a).setFloat64(a&0xffff,x,true),
+  call(a,esp,ecx){const h=VMCALL[a];if(!h)throw new Error('boss call 0x'+a.toString(16));return h(esp,ecx);},
+  vcall(d,esp){if(d===0x1c){const rp=V.r32(esp+16);BOSS.blits.push({dst:V.r32(esp),x:V.r32(esp+4),y:V.r32(esp+8),src:V.r32(esp+12),
+    rect:rp?[V.r32(rp),V.r32(rp+4),V.r32(rp+8),V.r32(rp+12)]:null});}}};   // 0x1c BltFast, 0x28 Clear (nothing to do)
+function vmStr(a){let s='';for(let c;(c=V.r8(a));a++)s+=String.fromCharCode(c);return s;}
+// fake object handles for the pointers the routine passes around
+const HND={screen:0x51000000,boss:0x52000000,ship:0x53000000,spr:0x54000000,list:0x55000000,part:0x56000000,expl:0x57000000,dev:0x58000000,mesh:0x59000000,enemies:0x60000000};
+const REC=0x7c;   // size of one enemy record
+function vmInit(){VMP.clear();
+  for(const [va,b] of DATA.bossMem){const s=atob(b);for(let i=0;i<s.length;i++)V.w8(va+i,s.charCodeAt(i));}
+  V.w32(0x494828,HND.screen);V.w32(0x494874,HND.boss);V.w32(0x4936b8,HND.ship);for(let t=0;t<40;t++)V.w32(0x4948f0+4*t,HND.spr+t);
+  V.w32(0x492540,HND.list);V.w32(0x491c20,HND.part);V.w32(0x494078,HND.expl);V.w32(0x4936a8,HND.dev);V.w32(0x4948bc,HND.enemies);
+  V.w32(0x4966fc,HND.mesh+1);V.w32(0x4966f8,HND.mesh+2);V.w32(0x4966f4,HND.mesh+3);V.w32(0x4966f0,HND.mesh+4);}
+const SND={0:'explosion',1:'spread',2:'beam',3:'hit',5:'rocket',6:'laser',7:'bounce',0x11:'shield',0x12:'bigexplosion',0x13:'powerline',
+  0x15:'morph',0x16:'laser2',0x17:'bigshot',0x18:'trigger',0x19:'klippikloppi',9:'v_online',0xa:'v_bounce',0xb:'v_spread',0xc:'v_laser',
+  0xd:'v_homing',0xe:'v_line',0xf:'v_shield',0x10:'v_oneup',0x14:'v_bigone'};
+const VMCALL={
+  0x431460:()=>{},0x401050:()=>{},0x42dfc4:()=>{},0x401159:()=>{},                 // stack check, identity matrix, textures, surface fill
+  0x431bc0:()=>Math.floor(Math.random()*32768),                                     // rand()
+  0x431e0c:()=>Math.trunc(BOSS.fp.pop())|0,                                         // _ftol
+  0x431cc4:esp=>{BOSS.fp.push(Math.sin(V.rd(esp)));},0x431c04:esp=>{BOSS.fp.push(Math.sqrt(V.rd(esp)));},
+  0x401195:esp=>{const a=k=>V.r32(esp+4*k);if(SHOT_T[a(4)])shotNew(a(0),a(1)-PY,a(2),a(3),a(4),a(5),a(6),a(7)&255);},   // x, y, vx, vy, type, frame, damage, byte
+  0x401109:esp=>{const n=SND[V.r32(esp)];if(n)sfx(n);},
+  0x40105a:esp=>{particle(V.r32(esp),V.r32(esp+4)-PY,V.r32(esp+8));},
+  0x40113b:esp=>{explosion(V.r32(esp),V.r32(esp+4)-PY,V.r32(esp+8),V.r32(esp+12));},
+  0x42ef25:(esp,ecx)=>{const s=BOSS.slots[ecx&15];s.mesh=vmStr(V.r32(esp)).split('.').pop();s.scale=1;},
+  0x42f26b:(esp,ecx)=>{BOSS.slots[ecx&15].scale=V.rf(esp);},
+  0x4010ff:()=>bossPart(3),0x401037:()=>bossPart(2),0x401032:()=>bossPart(1),0x401186:()=>bossPart(4),
+  0x4010f0:esp=>bossShipHit(V.r32(esp+16),V.r32(esp+20))?1:0,                       // pixel test ship against the boss image
+  0x4011bd:esp=>{BOSS.fadeMs=V.r32(esp);},                                           // fade to black after the last boss
+  // below 600 energy (not on easy) boss 5 runs the enemy routine 0x40a260 once more for every tail segment: it moves,
+  // is blitted a second time (after the foreground) and can ram the ship again
+  0x4010c3:(esp,ecx)=>{const s=BOSS.seg[((ecx-HND.enemies)/REC)|0];if(s&&!s.dead){const L=[];enemyStep(s,L);for(const b of L)BOSS.blits.push({eb:b});
+    V.w32(ecx,s.x);V.w32(ecx+4,s.y+PY);}}};
+// the four render routines: mesh slot, translation and rotation variables, rotation order (0x409be0..0x40a010)
+const SLOT={1:{t:[0x492314,0x492318,0x492310],r:[0x491c6c,0x491c70,0x491c68],xzy:true},2:{t:[0x4920dc,0x4920e0,0x4920d8],r:[0x491c7c,0x491c74,0x491c78]},
+  3:{t:[0x492170,0x492168,0x49216c],r:[0x492324,0x49231c,0x492320]},4:{t:[0x49415c,0x494070,0x494090],r:[0x49489c,0x4948a4,0x4948ac]}};
+function bossPart(k){const s=SLOT[k];BOSS.draws.push({slot:k,mesh:BOSS.slots[k].mesh,scale:BOSS.slots[k].scale,t:s.t.map(V.rf),r:s.r.map(V.rf),xzy:!!s.xzy});}
+const BOSS={id:0,phase:null,slots:{1:{},2:{},3:{},4:{}},draws:[],blits:[],fp:[],seg:{},mask:null,img:null,fade:false,t:0,hp0:1};
+// per level: [hp easy, normal, hard], screen rect x, y, w, h (0x415e82)
+const BOSS_START={1:[[1500,2000,2500],320,100,320,270],2:[[1500,2000,2500],180,-200,240,250],3:[[1500,2000,2500],320,100,320,270],
+  4:[[1500,2000,2500],320,100,320,270],5:[[1500,2000,2500],null,null,280,200],6:[[3000,4000,5000],320,100,320,270]};
+// boss 1..6 appears (0x415e7b): the routine's memory starts from the EXE's .data
+function bossActivate(){BOSS.id=(G.level+1)/2;vmInit();const d=BOSS_START[BOSS.id];
+  V.w32(0x494830,BOSS.id);V.w32(0x494160,0);V.w32(0x494834,d[0][G.diff]);V.w32(0x494050,d[0][G.diff]);BOSS.hp0=d[0][G.diff];
+  if(d[1]!==null){V.w32(0x4948b8,d[1]);V.w32(0x496458,d[2]);}
+  V.w32(0x496438,d[3]);V.w32(0x49483c,d[4]);V.w32(0x4948c0,0);V.w32(0x4948c4,0);V.w32(0x4948c8,d[3]);V.w32(0x4948cc,d[4]);
+  V.w8(0x496704,1);V.w32(0x495154,G.level);BOSS.seg={};BOSS.phase='fight';BOSS.mask=null;G.bossActive=true;}
+const bossFlag=()=>BOSS.phase?V.r32(0x4936c0):0;   // 0x4936c0: 1 while the boss explodes, 0xff once it is gone
+const bossDying=()=>!!BOSS.phase&&V.r32(0x494160)===0xff;
+// one frame of the boss routine (called from the tile pass 0x42bdb0 while 0x496704 is set)
+function bossStep(){
+  // sync game state into the routine's variables, run one frame of it, read the results back
+  V.w32(0x4936c4,P.x);V.w32(0x49405c,P.y+PY);V.w8(0x4936c8,P.dead?1:0);V.w8(0x494168,G.diff);V.w32(0x4966e0,G.score);V.w8(0x4966ae,0);
+  const pf=playerFrame();V.w32(0x496468,pf*49);V.w32(0x49646c,0);V.w32(0x496470,pf*49+49);V.w32(0x496474,34);
+  for(const k in BOSS.seg){const s=BOSS.seg[k],a=HND.enemies+k*REC;V.w32(a,s.x);V.w32(a+4,s.y+PY);V.w32(a+0x28,s.dead?3:1);}
+  V.w32(0x49645c,G.endPhase);BOSS.draws=[];BOSS.blits=[];BOSS.fp.length=0;
+  bossAsm(V,F,BOSS.fp);
+  G.score=V.r32(0x4966e0);
+  if(V.r8(0x4936c8)&&!P.dead)killPlayer();
+  bossSegments();bossRender();
+  // destroyed: phase 3, then the save screen (0x4936b0 = 7) or, after the last boss, a fade and the end (10)
+  if(V.r32(0x49645c)!==G.endPhase){G.endPhase=V.r32(0x49645c);const st=V.r32(0x4936b0);
+    if(BOSS.fadeMs){const ms=BOSS.fadeMs;BOSS.fadeMs=0;fadeOut(ms,()=>endStart());}else if(st===7)saveStart();}}
+// boss 5 keeps its tail as ordinary enemies in the enemy array: mirror active records as remake enemies
+function bossSegments(){for(let k=1;k<=10;k++){const a=HND.enemies+k*REC;if(V.r32(a+0x34)!==39){continue;}
+    let s=BOSS.seg[k];const on=V.r32(a+0x28)===1;
+    if(!s){if(!on)continue;s=BOSS.seg[k]={type:39,x:V.r32(a),y:V.r32(a+4)-PY,w:40,h:40,hp:V.r32(a+0x20),hp0:V.r32(a+0x20),score:V.r32(a+0x64),t:0,f:0,cd:0,tc:0,
+      an:{col:0,row:0,cnt:1,dir:0,tick:0},spr:'dragontail'};
+      const pa=V.r32(a+0x58),p=[];for(let q=0;q<1000;q++){const dx=V.r32(pa+q*12),dy=V.r32(pa+q*12+4),n=V.r32(pa+q*12+8);p.push([dx,dy,n]);if(n<0)break;}
+      s.path=p;s.seg=V.r32(a+0x2c)/3|0;s.dx=p[s.seg][0];s.dy=p[s.seg][1];s.cnt=V.r32(a+0x30);}
+    // the segments take the records 1..10 of the enemy array, whatever level object was there is gone
+    if(on&&(s.dead||!G.enemies.includes(s))){s.dead=false;s.idx=k;for(const o of G.enemies)if(o!==s&&o.idx===k)o.dead=true;
+      if(G.objSt&&k<G.objSt.length)G.objSt[k]=1;if(!G.enemies.includes(s))insertEnemy(s);}
+    if(!on&&!s.dead){s.dead=true;}}}
+// ---------- boss rendering: the routine renders into a 320x270 surface (D3D projection 45 degrees, aspect 1.333,
+// near 10, far 2000, one directional light (1,-1,1), no ambient) and blits it with the colour key
+const GL={cv:null,gl:null,prog:null,buf:{},tex:{},ready:false};
+function glInit(){if(GL.ready)return true;try{const c=document.createElement('canvas');c.width=320;c.height=270;
+  const gl=c.getContext('webgl',{alpha:true,premultipliedAlpha:false,antialias:false,preserveDrawingBuffer:true});if(!gl)return false;
+  // D3D7 lights per vertex (Gouraud shading) with renormalised normals (D3DRENDERSTATE_NORMALIZENORMALS); the
+  // material of the file (diffuse = ambient = faceColor, no emissive), white light, no ambient light and no specular;
+  // the texture is modulated with the vertex colour and the result lands in a 16 bit (RGB565) surface. D3D has its
+  // pixel centres on whole coordinates, GL half a pixel further, so the image is moved by half a pixel right and down
+  const vs=`attribute vec3 p;attribute vec3 n;attribute vec2 t;uniform mat4 mdl;uniform mat4 nrm;uniform mat4 prj;varying float vd;varying vec2 vt;
+    void main(){gl_Position=prj*(mdl*vec4(p,1.0));gl_Position.xy+=vec2(1.0/320.0,-1.0/270.0)*gl_Position.w;vd=max(dot(normalize((nrm*vec4(n,0.0)).xyz),normalize(vec3(-1.0,1.0,-1.0))),0.0);vt=t;}`;
+  const fs=`precision mediump float;varying float vd;varying vec2 vt;uniform sampler2D s;uniform float useTex;uniform vec3 col;
+    void main(){const vec3 Q=vec3(31.0,63.0,31.0);vec3 c=(useTex>0.5?texture2D(s,vt).rgb:vec3(1.0))*col*vd;gl_FragColor=vec4(floor(c*Q+0.01)/Q,1.0);}`;
   const sh=(ty,src)=>{const h=gl.createShader(ty);gl.shaderSource(h,src);gl.compileShader(h);if(!gl.getShaderParameter(h,gl.COMPILE_STATUS))throw gl.getShaderInfoLog(h);return h;};
   const pr=gl.createProgram();gl.attachShader(pr,sh(gl.VERTEX_SHADER,vs));gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,fs));gl.linkProgram(pr);
-  GL.cv=c;GL.gl=gl;GL.prog=pr;GL.loc={p:gl.getAttribLocation(pr,'p'),n:gl.getAttribLocation(pr,'n'),t:gl.getAttribLocation(pr,'t'),mvp:gl.getUniformLocation(pr,'mvp'),m:gl.getUniformLocation(pr,'m'),s:gl.getUniformLocation(pr,'s'),useTex:gl.getUniformLocation(pr,'useTex'),col:gl.getUniformLocation(pr,'col'),flash:gl.getUniformLocation(pr,'flash')};
-  gl.enable(gl.DEPTH_TEST);gl.enable(gl.CULL_FACE);gl.cullFace(gl.BACK);
-  for(const k in DATA.skins){const tx=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tx);const im=new Image();im.onload=()=>{gl.bindTexture(gl.TEXTURE_2D,tx);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,im);gl.generateMipmap(gl.TEXTURE_2D);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);};im.src=DATA.skins[k];
-    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([128,128,128,255]));GL.tex[k]=tx;}
-  for(const bid in DATA.bosses){GL.meshes[bid]=DATA.bosses[bid].map(pt=>{const buf=(arr,ty)=>{const bb=gl.createBuffer();gl.bindBuffer(ty,bb);gl.bufferData(ty,arr,gl.STATIC_DRAW);return bb;};
-    const vs=new Float32Array(pt.v);let minx=1e9,maxx=-1e9,miny=1e9,maxy=-1e9,minz=1e9,maxz=-1e9;for(let i=0;i<vs.length;i+=3){minx=Math.min(minx,vs[i]);maxx=Math.max(maxx,vs[i]);miny=Math.min(miny,vs[i+1]);maxy=Math.max(maxy,vs[i+1]);minz=Math.min(minz,vs[i+2]);maxz=Math.max(maxz,vs[i+2]);}
-    return {name:pt.name,vb:buf(vs,gl.ARRAY_BUFFER),nb:buf(new Float32Array(pt.n),gl.ARRAY_BUFFER),tb:buf(new Float32Array(pt.uv),gl.ARRAY_BUFFER),ib:buf(new Uint16Array(pt.i),gl.ELEMENT_ARRAY_BUFFER),cnt:pt.i.length,tex:pt.tex,color:pt.color,bb:[minx,maxx,miny,maxy,minz,maxz]};});}
+  GL.cv=c;GL.gl=gl;GL.prog=pr;GL.loc={p:gl.getAttribLocation(pr,'p'),n:gl.getAttribLocation(pr,'n'),t:gl.getAttribLocation(pr,'t'),mdl:gl.getUniformLocation(pr,'mdl'),
+    nrm:gl.getUniformLocation(pr,'nrm'),prj:gl.getUniformLocation(pr,'prj'),s:gl.getUniformLocation(pr,'s'),useTex:gl.getUniformLocation(pr,'useTex'),col:gl.getUniformLocation(pr,'col')};
+  gl.enable(gl.DEPTH_TEST);gl.enable(gl.CULL_FACE);gl.frontFace(gl.CW);gl.cullFace(gl.BACK);   // D3DCULL_CCW: faces that appear clockwise are the front
+  for(const k in SKIN){const tx=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tx);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,SKIN[k]);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.REPEAT);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.REPEAT);GL.tex[k]=tx;}   // D3DTADDRESS_WRAP (all skins are 256x256)
+  for(const k in DATA.meshes){const m=DATA.meshes[k],b=(arr)=>{const bb=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,bb);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(arr),gl.STATIC_DRAW);return bb;};
+    GL.buf[k]={p:b(m.p),n:b(m.n),t:b(m.uv),cnt:m.p.length/3};}
   GL.ready=true;return true;}catch(e){console.error('webgl',e);return false;}}
-function mat4mul(a,b){const o=new Float32Array(16);for(let i=0;i<4;i++)for(let j=0;j<4;j++){let s=0;for(let k=0;k<4;k++)s+=a[k*4+j]*b[i*4+k];o[i*4+j]=s;}return o;}
-function mat4rot(ax,ay,az){const cx=Math.cos(ax),sx=Math.sin(ax),cy=Math.cos(ay),sy=Math.sin(ay),cz=Math.cos(az),sz=Math.sin(az);
-  const X=new Float32Array([1,0,0,0,0,cx,sx,0,0,-sx,cx,0,0,0,0,1]),Y=new Float32Array([cy,0,-sy,0,0,1,0,0,sy,0,cy,0,0,0,0,1]),Z=new Float32Array([cz,sz,0,0,-sz,cz,0,0,0,0,1,0,0,0,0,1]);return mat4mul(Z,mat4mul(Y,X));}
-const CAM_D=900,FOV=0.55;
-function pxPerUnit(){return PH/(2*CAM_D*Math.tan(FOV/2));}
-function bossDraw(B){if(!glInit())return;const gl=GL.gl;gl.viewport(0,0,W,PH);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.useProgram(GL.prog);
-  const f=1/Math.tan(FOV/2),asp=W/PH,near=100,far=3000;const P=new Float32Array([f/asp,0,0,0,0,f,0,0,0,0,(far+near)/(near-far),-1,0,0,2*far*near/(near-far),0]);
-  const ppu=pxPerUnit();const parts=GL.meshes[B.id];
-  for(let k=0;k<parts.length;k++){const pt=parts[k],pp=B.parts[k];
-    const sc=B.scale;const bs=B.def.base;const R=mat4mul(mat4rot(bs[0],bs[1],bs[2]),mat4rot(pp.rx,pp.ry,pp.rz));
-    // model: scale, rotate, translate into camera space (x right, y up, z towards viewer)
-    const wx=(B.x-W/2+pp.ox)/ppu,wy=-(B.y-PH/2+pp.oy)/ppu,wz=pp.oz/ppu;
-    const S=new Float32Array([sc,0,0,0,0,sc,0,0,0,0,sc,0,0,0,0,1]);const M=mat4mul(R,S);M[12]=wx-B.c[0]*sc;M[13]=wy-B.c[1]*sc;M[14]=wz-B.c[2]*sc-CAM_D;
-    const MVP=mat4mul(P,M);
-    gl.uniformMatrix4fv(GL.loc.mvp,false,MVP);gl.uniformMatrix4fv(GL.loc.m,false,R);gl.uniform1f(GL.loc.flash,B.flash>0?0.8:0);
-    if(pt.tex&&GL.tex[pt.tex]){gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,GL.tex[pt.tex]);gl.uniform1i(GL.loc.s,0);gl.uniform1f(GL.loc.useTex,1);}else{gl.uniform1f(GL.loc.useTex,0);gl.uniform3fv(GL.loc.col,pt.color);}
-    gl.bindBuffer(gl.ARRAY_BUFFER,pt.vb);gl.enableVertexAttribArray(GL.loc.p);gl.vertexAttribPointer(GL.loc.p,3,gl.FLOAT,false,0,0);
-    gl.bindBuffer(gl.ARRAY_BUFFER,pt.nb);gl.enableVertexAttribArray(GL.loc.n);gl.vertexAttribPointer(GL.loc.n,3,gl.FLOAT,false,0,0);
-    gl.bindBuffer(gl.ARRAY_BUFFER,pt.tb);gl.enableVertexAttribArray(GL.loc.t);gl.vertexAttribPointer(GL.loc.t,2,gl.FLOAT,false,0,0);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,pt.ib);gl.drawElements(gl.TRIANGLES,pt.cnt,gl.UNSIGNED_SHORT,0);}
-  ctx.drawImage(GL.cv,0,0);}
-// boss definitions: target pixel height, hp, part animation
-const BOSS_DEF={1:{h:200,mw:380,hp:700,name:'GUARDIAN',base:[0,0,0]},2:{h:240,mw:340,hp:900,name:'ROTOR',base:[0,0,0]},3:{h:170,mw:320,hp:1000,name:'FIGHTER',base:[1.0,0.3,0],axis:2},4:{h:190,mw:300,hp:1200,name:'VIRUS',base:[0,0,0]},5:{h:230,mw:360,hp:1400,name:'CRUSHER',base:[0.25,0.15,0]},6:{h:210,mw:300,hp:1800,name:'THE BRAIN',base:[0.2,0,0]}};
-function bossStart(){if(!glInit()){G.stageClear=true;return;}const id=level().theme;const def=BOSS_DEF[id];const parts=GL.meshes[id];
-  let miny=1e9,maxy=-1e9,minx=1e9,maxx=-1e9,minz=1e9,maxz=-1e9;for(const pt of parts){minx=Math.min(minx,pt.bb[0]);maxx=Math.max(maxx,pt.bb[1]);miny=Math.min(miny,pt.bb[2]);maxy=Math.max(maxy,pt.bb[3]);minz=Math.min(minz,pt.bb[4]);maxz=Math.max(maxz,pt.bb[5]);}
-  const ppu=pxPerUnit();const hy=def.axis===2?(maxz-minz):(maxy-miny);const scale=Math.min(def.h/(hy*ppu),def.mw/((maxx-minx)*ppu));const wpx=(maxx-minx)*ppu*scale,hpx=hy*ppu*scale;
-  G.boss={id,def,x:W+wpx,y:PH/2,w:wpx,h:hpx,hp:def.hp,maxhp:def.hp,t:0,flash:0,scale,shoot:120,phase:0,dying:0,c:[(minx+maxx)/2,(miny+maxy)/2,(minz+maxz)/2],
-    parts:parts.map(()=>({rx:0,ry:0,rz:0,ox:0,oy:0,oz:0}))};
-  G.speed=0;musicPlay('boss');sfx('v_bigone',0.9);}
-function bossUpdate(){const B=G.boss;B.t++;if(B.flash>0)B.flash--;const d=G.diff;
-  if(B.dying){B.dying--;if(B.dying%6===0){explode(B.x-B.w/2+Math.random()*B.w,B.y-B.h/2+Math.random()*B.h,Math.random()<0.5);sfx('explosion',0.5,0.8+Math.random()*.4);}
-    B.parts.forEach((pp,i)=>{pp.rz+=0.02*(i+1);pp.oy+=0.5;});if(B.dying===0){G.score+=5000;G.boss=null;G.bossDone=true;G.stageClear=true;}return;}
-  // entrance, then hovering pattern
-  const tx=W-B.w/2-30;if(B.x>tx)B.x-=2;else B.x=tx+Math.sin(B.t*0.012)*25;
-  B.y=PH/2+Math.sin(B.t*0.02)*(PH/2-B.h/2-20);
-  // part animation per boss
-  const pp=B.parts;switch(B.id){
-    case 1:pp[0].ry=Math.sin(B.t*0.03)*0.4;pp[1].rz=Math.sin(B.t*0.02)*0.15;pp[2].ry=B.t*0.05;break;
-    case 2:pp[0].ry=Math.sin(B.t*0.02)*0.5;pp[1].ry=B.t*0.25;break;
-    case 3:pp[0].ry=Math.PI/2+Math.sin(B.t*0.03)*0.3;pp[0].rz=Math.sin(B.t*0.05)*0.2;break;
-    case 4:pp[0].ry=B.t*0.03;pp[0].rx=Math.sin(B.t*0.02)*0.4;break;
-    case 5:pp[0].ry=Math.PI+Math.sin(B.t*0.015)*0.3;pp[0].rx=Math.sin(B.t*0.03)*0.15;break;
-    case 6:pp[0].ry=B.t*0.02;pp[0].rx=Math.sin(B.t*0.03)*0.3;pp[1].ry=-B.t*0.06;pp[1].oy=Math.sin(B.t*0.05)*30;break;}
-  // attacks: aimed bursts, faster when damaged
-  const rate=[110,85,60][d]*(B.hp<B.maxhp/2?0.7:1);
-  if(--B.shoot<=0&&B.x<W){const cx=B.x-B.w/4,cy=B.y;const ang=Math.atan2(P.y+17-cy,P.x+24-cx);
-    if(B.phase%3===2){for(let k=0;k<8;k++){const a=k*Math.PI/4+B.t*0.01;eshot(cx,cy,Math.cos(a)*3,Math.sin(a)*3,'blob');}}
-    else{for(const da of [-0.25,0,0.25])eshot(cx,cy,Math.cos(ang+da)*4.5,Math.sin(ang+da)*4.5,B.id>=4?'chaseshot':'bullet');}
-    sfx('laser2',0.4);B.shoot=rate;B.phase++;}
-  // player collision
-  if(!P.dead&&hit({x:B.x-B.w/2+10,y:B.y-B.h/2+10,w:B.w-20,h:B.h-20},{x:P.x+10,y:P.y+8,w:P.w-20,h:P.h-16}))hurtPlayer(2);
-  // player shots
-  for(const s of G.shots){if(s.dead)continue;if(hit(s,{x:B.x-B.w/2+8,y:B.y-B.h/2+8,w:B.w-16,h:B.h-16})){B.hp-=s.dmg;B.flash=4;if(s.homing)explode(s.x+8,s.y+8,false);else puff(s.x+s.w,s.y+s.h/2);s.dead=true;
-      if(B.hp<=0){B.hp=0;B.dying=150;sfx('bigexplosion',0.9);musicPlay('clear');}}}
-  for(const L of G.lines)for(const sg of L.segs)if(sg.alive&&hit({x:L.x,y:sg.y,w:16,h:32},{x:B.x-B.w/2,y:B.y-B.h/2,w:B.w,h:B.h})){B.hp-=3;B.flash=4;sg.alive=false;}
-}
-function bossHUD(){const B=G.boss;frame('bosshud',0,185,PY+2);const s=S.bossenergy;const wdt=Math.round(200*B.hp/B.maxhp);if(wdt>0)ctx.drawImage(s.img,0,0,wdt,24,250,PY+3,wdt,24);}
+// D3D matrices, row vectors (v' = v*M), stored row-major: uploaded as is they act as the transposed column matrices GL expects
+function mmul(a,b){const o=new Float32Array(16);for(let i=0;i<4;i++)for(let j=0;j<4;j++){let s=0;for(let k=0;k<4;k++)s+=a[i*4+k]*b[k*4+j];o[i*4+j]=s;}return o;}
+function mrot(ax,r){const c=Math.cos(r),s=Math.sin(r),m=new Float32Array([1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]);
+  if(ax===0){m[5]=c;m[6]=s;m[9]=-s;m[10]=c;}else if(ax===1){m[0]=c;m[2]=-s;m[8]=s;m[10]=c;}else{m[0]=c;m[1]=s;m[4]=-s;m[5]=c;}return m;}
+function mtrans(x,y,z){return new Float32Array([1,0,0,0,0,1,0,0,0,0,1,0,x,y,z,1]);}
+const PRJ=(()=>{const f=Math.PI/4,cot=Math.cos(f/2)/Math.sin(f/2),n=10,fa=2000,q=fa/(fa-n);return new Float32Array([1.333*cot,0,0,0,0,cot,0,0,0,0,q,1,0,0,-q*n,0]);})();
+function bossRender(){if(!glInit())return;const gl=GL.gl;gl.viewport(0,0,320,270);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.useProgram(GL.prog);
+  gl.uniformMatrix4fv(GL.loc.prj,false,PRJ);
+  for(const d of BOSS.draws){const m=DATA.meshes[d.mesh],b=GL.buf[d.mesh];if(!m)continue;
+    const R=d.xzy?mmul(mmul(mrot(0,d.r[0]),mrot(2,d.r[2])),mrot(1,d.r[1])):mmul(mmul(mrot(0,d.r[0]),mrot(1,d.r[1])),mrot(2,d.r[2]));
+    const world=mmul(R,mtrans(d.t[0],d.t[1],d.t[2])),fw=mmul(new Float32Array(m.m),world),sc=d.scale||1;
+    const mdl=mmul(new Float32Array([sc,0,0,0,0,sc,0,0,0,0,sc,0,0,0,0,1]),fw);
+    gl.uniformMatrix4fv(GL.loc.mdl,false,mdl);gl.uniformMatrix4fv(GL.loc.nrm,false,fw);
+    if(m.tex&&GL.tex[m.tex]){gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,GL.tex[m.tex]);gl.uniform1i(GL.loc.s,0);gl.uniform1f(GL.loc.useTex,1);}
+    else gl.uniform1f(GL.loc.useTex,0);   // no texture name: the stage has no texture and passes the lit colour on
+    gl.uniform3fv(GL.loc.col,m.color);
+    gl.bindBuffer(gl.ARRAY_BUFFER,b.p);gl.enableVertexAttribArray(GL.loc.p);gl.vertexAttribPointer(GL.loc.p,3,gl.FLOAT,false,0,0);
+    gl.bindBuffer(gl.ARRAY_BUFFER,b.n);gl.enableVertexAttribArray(GL.loc.n);gl.vertexAttribPointer(GL.loc.n,3,gl.FLOAT,false,0,0);
+    gl.bindBuffer(gl.ARRAY_BUFFER,b.t);gl.enableVertexAttribArray(GL.loc.t);gl.vertexAttribPointer(GL.loc.t,2,gl.FLOAT,false,0,0);
+    gl.drawArrays(gl.TRIANGLES,0,b.cnt);}
+  // mask of the rendered image for the pixel collisions (rows flipped: GL reads bottom-up)
+  const px=new Uint8Array(320*270*4);gl.readPixels(0,0,320,270,gl.RGBA,gl.UNSIGNED_BYTE,px);
+  const a=BOSS.mask||(BOSS.mask=new Uint8Array(320*270));for(let y=0;y<270;y++){const r=(269-y)*320;for(let x=0;x<320;x++)a[y*320+x]=px[(r+x)*4+3]>0?1:0;}}
+// pixel test of a shape (screen x, playfield y) against the boss image at the routine's blit position
+function bossMaskHit(A,bx,by){const m=BOSS.mask;if(!m)return false;const w=V.r32(0x4948c8),h=V.r32(0x4948cc),ox=V.r32(0x4948c0),oy=V.r32(0x4948c4);
+  const X0=bx,Y0=by-PY,x0=Math.max(A.x,X0),y0=Math.max(A.y,Y0),x1=Math.min(A.x+A.w,X0+w),y1=Math.min(A.y+A.h,Y0+h);if(x0>=x1||y0>=y1)return false;
+  const ma=maskOf(A.img);for(let y=y0;y<y1;y++){const ra=(A.sy+y-A.y)*ma.w+A.sx-A.x,rb=(oy+y-Y0)*320+ox-X0;for(let x=x0;x<x1;x++)if(ma.a[ra+x]&&m[rb+x])return true;}return false;}
+function bossShipHit(bx,by){return !P.dead&&bossMaskHit(shipShape(),bx,by);}
+// draw what the routine blitted this frame: sprites, then the boss image
+function bossDraw(){if(!G.bossActive)return;for(const b of BOSS.blits){
+    if(b.eb){blit(b.eb);continue;}
+    if(b.src===HND.boss){const r=b.rect||[0,0,320,270];if(bltOk(b.x,b.y,r,320,270))ctx.drawImage(GL.cv,r[0],r[1],r[2]-r[0],r[3]-r[1],b.x,b.y-PY,r[2]-r[0],r[3]-r[1]);}
+    else if(b.src>=HND.spr&&b.src<HND.spr+40){const s=S['e'+(b.src-HND.spr)];if(s&&b.rect&&bltOk(b.x,b.y,b.rect,s.w,s.h))ctx.drawImage(s.img,b.rect[0],b.rect[1],b.rect[2]-b.rect[0],b.rect[3]-b.rect[1],b.x,b.y-PY,b.rect[2]-b.rect[0],b.rect[3]-b.rect[1]);}}}
+// BltFast without clipper (IDirectDrawSurface7 +0x1c, screen coordinates): the rectangle has to lie completely inside
+// the source and the 640x480 screen, otherwise nothing is drawn
+function bltOk(x,y,[l,t,r,b],sw,sh){return l>=0&&t>=0&&r>l&&b>t&&r<=sw&&b<=sh&&x>=0&&y>=0&&x+r-l<=W&&y+b-t<=H;}
+const blit=b=>ctx.drawImage(b.img,b.sx,b.sy,b.w,b.h,b.x,b.y,b.w,b.h);
+// boss energy (0x417bb6): frame at the top of the playfield, bar at x=66, 200 px for full energy
+function bossHUD(){if(!G.bossActive)return;ctx.drawImage(S.bosshud.img,0,PY);const wdt=Math.floor(Math.max(0,V.r32(0x494050))*200/V.r32(0x494834));
+  if(wdt>0)ctx.drawImage(S.bossenergy.img,0,0,wdt,24,66,PY,wdt,24);}
 // ---------- input
 const keys={};let pressed={};
-addEventListener('keydown',e=>{if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' ','Control','Shift','Enter'].includes(e.key)||e.code.startsWith('F'))e.preventDefault();
+addEventListener('keydown',e=>{if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' ','Control','Shift','Enter','Escape','Tab'].includes(e.key)||e.code.startsWith('F'))e.preventDefault();
   if(!keys[e.code])pressed[e.code]=true;keys[e.code]=true;if(!AC)initAudio();});
-addEventListener('keyup',e=>{keys[e.code]=false;});
+addEventListener('keyup',e=>{keys[e.code]=false;if(e.key==='Escape'||e.key==='Tab')e.preventDefault();});
 addEventListener('blur',()=>{for(const k in keys)keys[k]=false;});
-cv.addEventListener('pointerdown',()=>{cv.focus();if(!AC)initAudio();});
+cv.addEventListener('pointerdown',()=>{cv.focus();if(!AC)initAudio();G.clicked=true;});
 const K={up:()=>keys.ArrowUp||keys.KeyW||keys.Numpad8,down:()=>keys.ArrowDown||keys.KeyS||keys.Numpad2,left:()=>keys.ArrowLeft||keys.KeyA||keys.Numpad4,right:()=>keys.ArrowRight||keys.KeyD||keys.Numpad6,
   fire:()=>keys.Space,beam:()=>keys.ControlLeft||keys.ControlRight,rocket:()=>keys.ShiftLeft||keys.ShiftRight,line:()=>keys.Enter||keys.NumpadEnter};
 
 // ---------- drawing helpers
 function frame(sp,f,x,y,flip){const s=S[sp];f=((f|0)%s.frames+s.frames)%s.frames;const sx=(f%s.cols)*s.fw,sy=Math.floor(f/s.cols)*s.fh;
   if(flip){ctx.save();ctx.translate(x+s.fw,y);ctx.scale(-1,1);ctx.drawImage(s.img,sx,sy,s.fw,s.fh,0,0,s.fw,s.fh);ctx.restore();}else ctx.drawImage(s.img,sx,sy,s.fw,s.fh,Math.round(x),Math.round(y),s.fw,s.fh);}
-function text(str,x,y,row=0,align=0){str=String(str);const s=S.font;if(align)x-=str.length*10*(align===2?1:.5);
-  for(let i=0;i<str.length;i++){const c=str.charCodeAt(i);if(c<33||c>125)continue;const sx=(c<97?(c-33):(c-97))*10,sy=row*28+(c>=97?14:0);ctx.drawImage(s.img,sx,sy,10,14,Math.round(x+i*10),Math.round(y),10,14);}}
+// text (0x40e2a0): 10x14 cells from font.gfx (row = colour, lower case in the second half of the row); the pen
+// advances by the glyph width from the table at 0x484820 plus 1, a space by 11. Centred text (0x40e540) starts at
+// x - width/2, where the width (0x40e0e0) counts a space as 10.
+const FW=DATA.fontW;
+function textW(str){let w=0;for(const ch of String(str)){const c=ch.charCodeAt(0);w+=c===32?10:(FW[c]||0)+1;}return w;}
+function text(str,x,y,row=0,align=0){str=String(str);const s=S.font;if(align===1)x-=Math.trunc(textW(str)/2);else if(align===2)x-=textW(str);
+  for(let i=0;i<str.length;i++){const c=str.charCodeAt(i);
+    if(c>=33&&c<=125&&x>=0&&x+10<=W){const sx=(c<97?(c-33):(c-97))*10,sy=row*28+(c>=97?14:0);ctx.drawImage(s.img,sx,sy,10,14,Math.round(x),Math.round(y),10,14);}
+    x+=(FW[c]||0)+1;if(c===32)x+=10;}}
 function num(str,cx,y){str=String(str);const s=S.font2;let x=Math.round(cx-str.length*4.5);
   for(const ch of str){const c=ch.charCodeAt(0)-48;
     if(c>=0&&c<=9)ctx.drawImage(s.img,c*8,0,8,10,x,y,8,10);
     else if(ch==='-'){ctx.fillStyle='#b9b9b9';ctx.fillRect(x+2,y+4,5,2);}
     x+=9;}}
 
-// ---------- enemy table (from Takatis.exe init function): hp, score, w, h
-const ET={0:[1e9,500,64,54],1:[1,70,52,32],2:[15,120,56,46],9:[6,100,36,46],10:[25,140,44,41],11:[25,140,44,41],12:[15,120,43,54],13:[1e9,2000,32,32],14:[100,300,80,47],15:[15,200,49,34],16:[70,250,32,32],17:[50,500,32,64],18:[1,10,16,16],19:[1,10,16,16],20:[1,10,16,16],21:[1,10,16,16],22:[1e9,2000,71,17],23:[1e9,2000,71,64],24:[50,180,84,47],25:[20,100,56,68],26:[1e9,2000,64,256],27:[1e9,2000,64,256],28:[120,600,72,72],29:[1e9,2000,80,36],30:[40,400,40,40],31:[75,500,48,48],32:[60,600,32,32],33:[60,300,36,61]};
 const ITEMS=['spread','laser','bounce','rocket','line','shield','oneup'];
 // which weapon stage a primary-weapon container grants, per level index (from the original code)
 const STAGE_TABLE=[{0:2,5:3,9:4},{1:1,3:2,6:3,11:4},{2:1,4:2,8:3,10:4}];
 const ITEM_SPR={spread:'pu_spread',laser:'pu_laser',bounce:'pu_bounce',rocket:'pu_rocket',line:'pu_line',shield:'pu_shield',oneup:'pu_oneup'};
-const MENU_ITEMS=['start','options','help','highscore','credits','quit'];
-const SLOTS=6;
-function slotKey(i){return 'takatis.slot'+i;}
-function readSlot(i){try{return JSON.parse(localStorage.getItem(slotKey(i)));}catch(e){return null;}}
-function writeSlot(i,v){try{localStorage.setItem(slotKey(i),JSON.stringify(v));}catch(e){}}
-function panel(x,y,w,h){ctx.fillStyle='rgba(46,32,18,.95)';ctx.fillRect(x,y,w,h);
-  ctx.strokeStyle='#7d6134';ctx.lineWidth=3;ctx.strokeRect(x+1.5,y+1.5,w-3,h-3);
-  ctx.strokeStyle='#3a2a14';ctx.lineWidth=1;ctx.strokeRect(x+5.5,y+5.5,w-11,h-11);}
 const ITEM_FRAME={spread:0,laser:1,bounce:2,rocket:3,line:4,shield:5,oneup:6};   // powerups.gfx
-const WALL_DIE=new Set([0,1,2,9,15,24,33]);
-// [frame count, frame delay] per enemy type - from Takatis.exe enemy init (+0x3c, +0x44)
-const ANIM={0:[32,5],1:[5,9],2:[16,7],9:[1,1],10:[3,10],11:[3,10],12:[8,10],13:[4,6],14:[4,10],15:[5,12],16:[8,7],17:[1,1],
-  18:[1,1],19:[1,1],20:[1,1],21:[1,1],22:[9,10],23:[4,10],24:[4,16],25:[18,8],26:[1,1],27:[1,1],28:[6,7],29:[3,10],30:[5,15],31:[10,60],32:[5,8],33:[1,1]};
-function animFrame(e){const a=ANIM[e.type];if(!a)return Math.floor(e.t/6);return Math.floor(e.t/a[1])%a[0];}   // free flyers; turrets, walkers, presses etc. are mounted on the terrain
+// ---------- enemies: init values are read from Takatis.exe at build time (0x40c760, see build.py)
+const EI=DATA.enemyInit;EI[39]={hp:999999,w:40,h:40,frames:5,delay:10,cols:5,pp:0,pts:50000};
+// animation stepping as in the enemy update (0x40b7a4): frame tick, sheet column/row, frame counter 1..frames,
+// optional ping-pong. Frame counter and direction drive several attacks.
+function animStep(e){const d=EI[e.type],A=e.an;if(++A.tick!==d.delay)return;
+  if(e.type===16||e.cnt===-2)return;   // magnet and chasers pick their frame from the direction instead
+  if(e.type===10||e.type===11){turretStep(e,d);return;}
+  if(!(d.pp&&A.dir)){if(++A.col===d.cols){A.col=0;A.row++;}
+    if(A.cnt===d.frames){if(d.pp){A.col=d.cols-1;A.row--;}else{A.col=0;A.row=0;}A.cnt=0;A.dir=1;}
+    A.tick=0;A.cnt++;}
+  if(d.pp&&A.dir){if(--A.col===-1){A.col=d.cols-1;A.row--;}if(A.cnt===d.frames){A.col=0;A.row=0;A.cnt=0;A.dir=0;}A.tick=0;A.cnt++;}
+  e.f=A.row*d.cols+A.col;}
+const lastTick=(e,cnt)=>e.an.cnt===cnt&&e.an.tick===EI[e.type].delay-1;
+// turrets (0x40b808): aim column from the ship position, fire every 90/70/40 frames by difficulty
+function turretStep(e,d){const A=e.an;A.col=1;if(P.x+50<e.x)A.col=0;if(P.x>e.x+45)A.col=2;e.f=A.col;
+  const T=e.type===10?[[-7,-2,-4,-3],[18,-6,-1,-3],[43,-2,3,-3]]:[[-7,36,-4,3],[18,38,-1,3],[43,36,3,3]];
+  if(e.tc===[90,70,40][G.diff]){const q=T[A.col];eshot(e.x+q[0],e.y+q[1],q[2],q[3],'bullet');sfx('bigshot');e.tc=0;}
+  e.tc++;A.tick=d.delay-1;}
 
 // ---------- game state
-window.G=window.G||{};const G={state:'menu',level:0,scroll:0,speed:1,maxScroll:0,next:0,lives:5,score:0,diff:0,info:false,t:0,frame:0,
-  enemies:[],shots:[],eshots:[],fx:[],items:[],lines:[],timer:0,music:null,stageClear:false,hiscore:0,menuSel:0,startRow:0,slotSel:0,optSel:0,page:0,creditY:0,slot:null,sfxVol:1};
-let P;window.__dbg=()=>({G,P,MUSIC});window.__tick=(n)=>{for(let i=0;i<n;i++)step();render();};window.__startBoss=(id)=>{G.lives=5;G.score=0;P=null;startLevel(2*id-1);G.state='play';G.scroll=G.maxScroll-1;};
-function newPlayer(){return {x:10,y:200,w:49,h:34,energy:3,inv:120,dead:0,bank:0,cool:0,weapon:0,lvl:[1,0,0],rockets:5,lines:2,shield:0,beam:0,beamOn:false,blink:0,laserPhase:0};}
+window.G=window.G||{};const G={state:'boot',level:0,scroll:0,speed:1,maxScroll:0,lives:5,score:0,diff:0,info:false,t:0,frame:0,
+  enemies:[],shots:[],timer:0,music:null,gamma:100,endPhase:0,endT:0,bossActive:false,savedSpeed:0,sfxVol:1,
+  sub:0,escLatch:false,blk:null,wait:null,sel:0,latch:false,song:0,jukebox:0,go:0,over:null,cheater:0,quitSel:0,paused:false,clicked:false};
+let P;window.__dbg=()=>({G,P,MUSIC,BOSS,V,CON});window.__boss=()=>({phase:BOSS.phase,state:V.r32(0x494160),cnt:V.r32(0x49404c),hp:V.r32(0x494050),bx:V.r32(0x4948b8),by:V.r32(0x496458),draws:BOSS.draws.length,blits:BOSS.blits.length});window.__tick=(n)=>{for(let i=0;i<n;i++)step();render();};window.__startBoss=(id)=>{G.lives=5;G.score=0;P=null;G.level=2*id-1;startLevel(2*id-1,level().wb*32-641);G.state='play';G.gamma=100;};window.__fx=()=>({part:PART.length,expl:EXPL.length,shots:G.shots.length});window.__lv=(i)=>{P=null;startLevel(i);G.state='play';G.gamma=100;};window.__eshot=(x,y,spr)=>eshot(x,y,0,0,spr);window.__end=()=>{if(!P)P=newPlayer();endStart();};window.__probe=()=>({tile:!!tileHit(shipShape()),ram:G.enemies.filter(e=>!e.dead&&ramTest(e)).map(e=>e.type)});window.__GL=()=>GL;window.__rerender=()=>bossRender();
+// player values from Takatis.exe: new game 0x420bf4, level (re)start 0x426710, update 0x41ced0
+function newPlayer(){return {x:10,y:184,w:49,h:34,energy:3,dead:0,bank:0,cool:0,swcool:0,weapon:0,lvl:[1,0,0],rockets:5,lines:3,beam:0,latch:{},
+  shieldOn:false,shieldT:0,shieldF:0,shieldC:0,hum:false,shieldDraw:[],boomed:false,spd:3};}
+const START_LIVES=[5,4,3];   // per difficulty (0x4230a7)
 
-function level(){return LEVELS[G.level];}
-function startLevel(i,fromScroll=0){G.level=i;const l=level();G.scroll=fromScroll;G.speed=l.speed;G.maxScroll=l.wb*32-640;
-  G.enemies=[];G.shots=[];G.eshots=[];G.fx=[];G.items=[];G.lines=[];G.next=0;G.boss=null;G.bossDone=false;
-  while(G.next<l.objects.length&&l.objects[G.next][1]<G.scroll)G.next++;
-  // apply speed triggers already passed
-  for(let k=0;k<G.next;k++){const o=l.objects[k];if(o[0]>=34&&o[0]<=37)G.speed=o[0]-33;}
+function level(){return G.level===12?OUTRO_LV:LEVELS[G.level];}
+// a respawn keeps the scroll speed of the moment of death (0x4267b6); objects only become active while their x passes
+// the window 635..640 px ahead of the scroll position (0x40a2ca), so everything already on screen at a restart stays away
+// the intro (0x416301) resets the level state (0x426710): no boss, phase 0, lists emptied, shield hum off; after
+// dying at a boss the saved scroll speed comes back
+function startLevel(i,fromScroll=0,respawn=false){G.level=i;const l=level();G.scroll=fromScroll;if(!respawn)G.speed=l.speed;G.maxScroll=l.wb*32-640;
+  if(respawn&&G.speed===0&&G.savedSpeed)G.speed=G.savedSpeed;
+  G.enemies=[];G.shots=[];PART=[];EXPL=[];G.objSt=new Uint8Array(l.objects.length);G.pblits=[];G.eblits=[];
+  G.bigone=false;G.bossActive=false;BOSS.phase=null;BOSS.fadeMs=0;
+  G.endPhase=0;G.endT=0;G.clearMusic=false;G.bossFade=0;WAVE.prev=WAVE.cur=null;sfxStop('shield');
   const keep=P;P=newPlayer();if(keep){P.weapon=keep.weapon;P.lvl=keep.lvl;P.rockets=keep.rockets;P.lines=keep.lines;}
-  G.state='ready';G.timer=150;G.stageClear=false;musicPlay('level'+l.theme);}
+  G.state='ready';G.timer=0;G.gamma=0;musicPlay('level'+l.theme);}
 
 // tile collision (screen coords in playfield space)
 function solidAt(sx,sy){const l=level();if(sy<0||sy>=PH)return true;const lx=Math.floor((sx+G.scroll)/32);if(lx<0||lx>=l.wb)return false;return l.B[Math.floor(sy/32)*l.wb+lx]!==0;}
-function boxSolid(x,y,w,h){for(let yy=y;yy<=y+h;yy+=Math.min(16,h))for(let xx=x;xx<=x+w;xx+=Math.min(16,w))if(solidAt(xx,yy))return true;return solidAt(x+w,y+h);}
+// strict overlap of a box with non-empty foreground tiles; nothing counts outside the 13 tile rows
+function boxInTiles(x,y,w,h){const l=level(),c0=Math.floor((x+G.scroll)/32),c1=Math.floor((x+w-1+G.scroll)/32),r0=Math.max(0,Math.floor(y/32)),r1=Math.min(12,Math.floor((y+h-1)/32));
+  for(let r=r0;r<=r1;r++)for(let c=Math.max(0,c0);c<=Math.min(l.wb-1,c1);c++)if(l.B[r*l.wb+c])return true;return false;}
 function hit(a,b){return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;}
 
 // ---------- spawning
-function spawn(o){const [type,x,y,param,flag]=o;if(flag>G.diff)return;const sx=x-G.scroll;
-  if(type>=34&&type<=37){G.enemies.push({type,x:sx,y,w:16,h:16,static:true,trigger:true,speed:type-33,hp:1e9});return;}
-  if(type===38){G.enemies.push({type,x:sx,y,w:16,h:16,static:true,trigger:true,end:true,hp:1e9});return;}
-  if(type>=3&&type<=8){const kind=['spread','laser','bounce','rocket','line','shield'][type-3];
-    let stage=0;if(type<=5){stage=STAGE_TABLE[type-3][G.level]||0;}
-    const empty=type<=5&&(!stage||P.lvl[type-3]>=stage); // primary container: fixed stage per level, empty if already owned
-    const c={type:9,x:sx,y,param,hp:6,score:100,w:36,h:46,t:0,f:0,vx:0,vy:0,y0:y,x0:sx,shoot:1e9,spr:'e9',dir:1,item:empty?null:kind,stage};setPath(c,param);G.enemies.push(c);return;}
-  const tb=ET[type]||[10,100,32,32];
-  const e={type,x:sx,y,param,hp:tb[0],score:tb[1],w:tb[2],h:tb[3],t:0,f:0,vx:0,vy:0,y0:y,x0:sx,shoot:60+Math.random()*60,spr:S['e'+type]?'e'+type:null,dir:1};
-  setPath(e,param);
-  switch(type){
-    case 0:e.rot=(param%2?1:-1)*(0.15+Math.random()*.2);break;
-    case 25:if(e.staticPath)e.vy=1;break;
-    case 28:if(e.staticPath){e.vx=-2;e.vy=1.5;}break;
-    case 30:if(e.staticPath)e.vy=1.5;break;
-    case 17:e.armed=false;break;
-    case 26:case 27:e.ph=Math.random()*6;break;
-    case 31:e.fuse=600;break;
-  }
-  if(type===9||type===33)e.item=ITEMS[3+(param%4)];
-  G.enemies.push(e);}
+// level object y is in screen coordinates, i.e. it includes the 16 px HUD bar
+// object activation (0x40a2ca): a waiting object starts when its x passes the window 635..640 px ahead of the scroll
+// position and its difficulty flag allows it (otherwise it keeps waiting); pass 1 of the enemy routine only looks at
+// the presses, pass 0 at all other objects. The enemies keep the order of the level file (the enemy array).
+function activate(pass){const l=level(),st=G.objSt;
+  for(let i=0;i<l.objects.length;i++){const o=l.objects[i];if(st[i]||((o[0]===26||o[0]===27)!==(pass===1)))continue;
+    if(G.scroll+640>=o[1]&&G.scroll+635<=o[1]&&o[4]<=G.diff){st[i]=1;spawn(o,i);}}}
+function insertEnemy(e){let i=G.enemies.length;while(i>0&&G.enemies[i-1].idx>e.idx)i--;G.enemies.splice(i,0,e);}
+function spawn(o,idx){const [type,x,y0,param,flag]=o;const y=y0-PY;const sx=W;   // activated objects start at x=640
+  // speed triggers 34..38 = scroll speed 1..5 (0x40b326); they act the moment they reach the right screen edge,
+  // with sound and sparks at the ship only if the speed actually changes. The level end is the scroll position.
+  if(type>=34&&type<=38){if(G.speed!==type-33){sfx('trigger');for(let k=0;k<15;k++){particle(P.x-45,P.y-20,3);particle(P.x-30,P.y-20,7);}G.speed=type-33;}return;}
+  const d=EI[type];if(!d)return;
+  const e={type,idx,x:sx,y,param,hp:d.hp,hp0:d.hp,score:d.pts,w:d.w,h:d.h,t:0,f:0,cd:0,tc:0,an:{col:0,row:0,cnt:1,dir:0,tick:0},
+    spr:type>=3&&type<=9?'e9':S['e'+type]?'e'+type:null};
+  setPath(e,param);insertEnemy(e);
+  // objects 3..9 are claws carrying spread, laser, bounce, rocket, powerline, shield, 1up (0x40a3ac). A primary weapon
+  // item is left out when the ship already has the stage that this level hands out.
+  if(type>=3&&type<=9){const cap=type<=5?STAGE_TABLE[type-3][G.level]:0;
+    if(!(cap&&P.lvl[type-3]===cap))shotNew(e.x+8,e.y+42,0,0,[15,16,17,12,13,14,18][type-3]).carrier=e;}}
 
 // ---------- movement patterns (original table: (dx,dy,count) segments; dx relative to the level)
 function setPath(e,param){const p=PATHS[param]||PATHS[0];e.path=p;e.seg=0;e.dx=p[0][0];e.dy=p[0][1];e.cnt=p[0][2];e.staticPath=p.length===1&&p[0][0]===0&&p[0][1]===0;}
-function stepPath(e){e.x+=e.dx-G.speed;e.y+=e.dy;
-  if(e.cnt===-1||e.cnt===-2)return;
+function stepPath(e){
+  if(e.cnt===-2){let sx=0,sy=0;const tx=P.x,ty=P.y;   // chase the ship with 2 px per frame, frame = one of 8 directions
+    if(Math.abs(e.x-tx)===1)e.x=tx;if(Math.abs(e.y-ty)===1)e.y=ty;
+    if(e.y<ty){e.y+=2;sy=1;}if(e.y>ty){e.y-=2;sy=-1;}if(e.x<tx){e.x+=2;sx=1;}if(e.x>tx){e.x-=2;sx=-1;}
+    const D={'-1,0':6,'1,0':2,'0,-1':0,'0,1':4,'-1,-1':7,'-1,1':5,'1,-1':1,'1,1':3}[sx+','+sy];if(D!==undefined){e.an.col=D;e.f=D;}return;}
+  e.x+=e.dx-G.speed;e.y+=e.dy;
+  if(e.cnt===-1)return;
   if(--e.cnt>0)return;
   e.seg++;let s=e.path[e.seg];
   if(!s||s[2]===-3){e.seg=0;s=e.path[0];}
-  else if(s[2]===-4){e.seg=0;s=e.path[0];e.x=660;e.y=200;e.dx=s[0];e.dy=s[1];e.cnt=(e.path[1]||s)[2];return;}
+  else if(s[2]===-4){e.seg=0;s=e.path[0];e.x=660;e.y=200-PY;e.dx=s[0];e.dy=s[1];e.cnt=(e.path[1]||s)[2];return;}
   e.dx=s[0];e.dy=s[1];e.cnt=s[2];}
-// ---------- effects
-function explode(x,y,big,player){
-  G.fx.push({spr:'explosion',x:x-30,y:y-25,f:0,rate:4,n:8});
-  if(big){G.fx.push({spr:'explosion2',x:x-24-14,y:y-24+6,f:-2,rate:5,n:6});
-          G.fx.push({spr:'explosion2',x:x-24+16,y:y-24-10,f:-4,rate:5,n:6});}
-  const n=big?7:4;
-  for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,s=1+Math.random()*(big?3.5:2.2);
-    G.fx.push({spr:'debris'+(1+(i%3)),x:x-8,y:y-8,vx:Math.cos(a)*s,vy:Math.sin(a)*s,f:0,rate:3,n:16,grav:true,life:big?55:35});}
-  for(let i=0;i<(big?4:2);i++)G.fx.push({spr:'smoke',x:x-8+(Math.random()-.5)*22,y:y-8+(Math.random()-.5)*22,vx:-0.4,vy:-0.5,f:0,rate:3,n:16});
-  sfx(player?'bigexplosion':'explosion',player?0.8:0.5,big?0.9:1.25);}
-function puff(x,y){G.fx.push({spr:'smallexpl',x:x-8,y:y-8,f:0,rate:3,n:6});}
-function sparks(x,y){for(let i=0;i<12;i++)G.fx.push({spr:'blob',x,y,vx:(Math.random()-.5)*6,vy:(Math.random()-.5)*6,f:0,rate:6,n:6});}
+// ---------- effects: particles (list 0x491c20) and explosions (list 0x494078), both as in the original.
+// Positions are screen x and playfield y (screen y - 16) like everything else in the remake.
+const R=n=>Math.floor(Math.random()*32768)%n;   // rand()%n; rand() of the C runtime returns 0..32767
+const OPT={smoke:false};   // option 0x4966b4 (smoke behind Debris1 particles), off in the shipped Options.ini
+// particle constructor (0x402cf0): types 0..2 are debris with a random speed of -5..5 and gravity (0: Debris1-5,
+// 1: Debris3-5, 2: Debris3/4), 3/9 smoke, 4 laser smoke, 5 shield flare (these three stand still and keep the given
+// position, all others are moved by +25/+25), 6/7 Debris3 thrown up to the right/left, 8 engine exhaust.
+// Every sheet holds 4x4 frames of 16x16.
+const PSPR=['debris1','debris2','debris3','debris4','debris5','smoke','lasersmoke','shieldflare','drive'];
+let PART=[];   // oldest first; the original list keeps the newest first
+function particle(x,y,type){const p={vx:0,vy:0,spr:0,col:0,row:0,tick:0,grav:0,x:x+25,y:y+25,draw:null};
+  while(p.vx===0&&p.vy===0){p.vx=R(11)-5;p.vy=R(11)-5;}
+  if(type===0)p.spr=R(5);
+  else if(type===1){do p.spr=R(5);while(p.spr<2);}
+  else if(type===2){do p.spr=R(4);while(p.spr<2);}
+  else if(type===6||type===7){p.spr=2;p.vx=(R(7)+1)*(type===6?1:-1);p.vy=-R(7);}
+  else if(type===8){p.spr=8;let v=0;while(!v)v=R(3);p.vx=-v-(P.spd||3);p.vy=0;}
+  else if(type===3||type===9||type===4||type===5){p.spr=type===4?6:type===5?7:5;p.x=x;p.y=y;}
+  PART.push(p);}
+// update (0x403070): drawn at the old position, then moved; 3 ticks per frame (2 for the exhaust); frames 0..14 run,
+// then Debris1/2/4/5 start over while all others vanish; gravity adds 1 to vy every 6 frames (not for the exhaust)
+function partUpdate(p){
+  if(p.spr===0&&OPT.smoke&&R(2)===1)particle(p.x,p.y,9);
+  p.draw={sx:p.col*16,sy:p.row*16,x:p.x,y:p.y};
+  if(p.spr<5||p.spr>7){p.x+=p.vx;p.y+=p.vy;}
+  if(++p.tick===(p.spr===8?2:3)){if(++p.col===4){p.col=0;p.row++;}
+    if(p.row===3&&p.col===3){p.col=0;p.row=0;if(p.spr===2||p.spr>=5)p.x=-1000;}p.tick=0;}
+  if(p.grav===6&&p.spr!==8){p.vy++;p.grav=0;}p.grav++;}
+// list update (0x4035b0): after each particle the next one is dropped when it is more than 16 px outside the
+// playfield; the newest particle is never checked. Particles made during the update wait for the next frame.
+const PB={top:16,bottom:433};   // 0x485690/0x485694: the playfield, the whole screen during the credits
+function partStep(){const L=PART,n=L.length,keep=[],y0=PB.top-16-PY,y1=PB.bottom+16-PY;
+  for(let i=n-1;i>=0;i--){partUpdate(L[i]);keep.push(L[i]);
+    if(i>0){const q=L[i-1];if(q.x<-16||q.x>W+16||q.y<y0||q.y>y1)i--;}}
+  PART=keep.reverse().concat(L.slice(n));}
+function partDraw(){for(let i=PART.length-1;i>=0;i--){const p=PART[i],d=p.draw;if(d)ctx.drawImage(S[PSPR[p.spr]].img,d.sx,d.sy,16,16,d.x,d.y,16,16);}}
 
-// ---------- weapons
-function fireSpread(){const lv=P.lvl[0];   // 1/3/5/7 shots, integer velocities, 3 damage each
-  const V=[[[8,0]],[[8,0],[7,-1],[7,1]],[[8,0],[7,-1],[7,1],[6,-2],[6,2]],[[8,0],[7,-1],[7,1],[6,-2],[6,2],[5,-3],[5,3]]][lv-1];
-  const FR={0:0,'-1':1,1:2,'-2':3,2:4,'-3':5,3:6};
-  for(const v of V)G.shots.push({kind:'spread',x:P.x+42,y:P.y+9,w:18,h:17,vx:v[0],vy:v[1],dmg:3,f:0,fixed:FR[v[1]]});
-  sfx('spread',0.35);P.cool=11;}
-function fireLaser(){const lv=P.lvl[1];P.laserPhase+=0.35;const off=Math.sin(P.laserPhase)*10;
-  const dm=[5,4,3,3][lv-1];   // damage per stage from the original
-  G.shots.push({kind:'laser',x:P.x+40,y:P.y+8+off,w:24,h:12,vx:5,vy:0,dmg:dm,f:0,sine:1,ph:P.laserPhase});
-  G.shots.push({kind:'laser',x:P.x+40,y:P.y+8-off,w:24,h:12,vx:5,vy:0,dmg:dm,f:0,sine:1,ph:P.laserPhase+Math.PI});
-  sfx('laser',0.25,1+lv*.1);P.cool=[12,9,6,4][lv-1];}
-function fireBounce(){const lv=P.lvl[2];G.shots.push({kind:'bounce1',x:P.x+40,y:P.y+5,w:24,h:24,vx:9,vy:0,dmg:4,f:0,bounce:true,size:1,bounces:0});
-  if(lv>=4){G.shots.push({kind:'bounce3',x:P.x+40,y:P.y+5,w:12,h:12,vx:8,vy:-3,dmg:3,f:0,bounce:true,size:3,bounces:0});G.shots.push({kind:'bounce3',x:P.x+40,y:P.y+15,w:12,h:12,vx:8,vy:3,dmg:3,f:0,bounce:true,size:3,bounces:0});}
-  sfx('bounce',0.4);P.cool=16;}
-function fireRocket(){if(P.rockets<=0)return;P.rockets--;G.shots.push({kind:'rocket',x:P.x+20,y:P.y+20,w:16,h:16,vx:5,vy:0,dmg:100,f:0,homing:true,target:null});sfx('rocket',0.5);}
-function fireLine(){if(P.lines<=0)return;P.lines--;const cy=P.y+17;const segs=[];for(let i=-7;i<=7;i++)segs.push({y:cy-16+i*32,alive:true});G.lines.push({x:P.x+30,segs,t:0});sfx('powerline',0.6);}
-function releaseBeam(){const lv=P.beam>=100?4:P.beam>=66?3:P.beam>=33?2:P.beam>=10?1:0;P.beam=0;if(!lv)return;
-  const spr=['beammini','beamsmall','beammed','beambig'][lv-1];const s=S[spr];
-  G.shots.push({kind:spr,x:P.x+45,y:P.y+17-s.fh/2,w:s.fw,h:s.fh,vx:8,vy:0,dmg:[10,15,20,25][lv-1],f:0,pierce:lv===4,beam:true,anim:true});sfx('beam',0.5,0.8+lv*.1);}
-function splitBounce(s){if(s.size===1&&P.lvl[2]>=2){for(const d of [-1,1])G.shots.push({kind:'bounce2',x:s.x+3,y:s.y+3,w:18,h:18,vx:4*d,vy:-3*d,dmg:4,f:0,bounce:true,size:2,bounces:0});}
-  else if(s.size===2&&P.lvl[2]>=3){for(const d of [-1,1])G.shots.push({kind:'bounce3',x:s.x+3,y:s.y+3,w:12,h:12,vx:3.5*d,vy:3.5*d,dmg:3,f:0,bounce:true,size:3,bounces:0});}}
+// explosions (constructor 0x40d860, update 0x40da90, list 0x40dfa0). Type 0 is one of the two big explosions and
+// brings the explosion sound (not while the ship or the boss is dying) and a smoke particle, 1 is the beam explosion,
+// 2 the small one. A delay holds the explosion back; it does not scroll meanwhile. BltFast has no clipper: only the
+// left edge is clipped, a frame that sticks out anywhere else is not drawn at all.
+let EXPL=[];
+const EXPL_T={0:[8,4,7,'explosion',60,50],5:[6,3,5,'explosion2',48,48],1:[5,5,5,'beamexplode',50,50],2:[6,3,5,'smallexpl',16,16]};
+function explosion(x,y,delay,type){let t=type;
+  if(type===0){if(R(2)!==1)t=5;if(!P.dead&&!bossDying())sfx('explosion');particle(x,y,3);}
+  const [n,cols,tpf,spr,w,h]=EXPL_T[t];EXPL.push({x,y,delay,n,cols,tpf,spr,w,h,f:0,tick:0,done:false,draw:null});}
+function explStep(){for(const e of EXPL){e.draw=null;if(e.delay>0){e.delay--;continue;}
+    const fd=e.f,sx=(fd<e.cols?fd:fd-e.cols)*e.w,sy=fd<e.cols?0:e.h;
+    if(++e.tick===e.tpf){e.f++;e.tick=0;}
+    if(fd<e.n){const cut=e.x<0?-e.x:0;if(e.w-cut>0&&e.x+e.w<=W&&e.y+PY>=0&&e.y+PY+e.h<=H)e.draw={sx:sx+cut,sy,x:e.x+cut,w:e.w-cut,y:e.y};}
+    if(e.f===e.n)e.done=true;
+    e.x-=G.speed;}
+  if(EXPL.length&&EXPL[0].done)EXPL.shift();}   // only the oldest one leaves the list, one per frame
+function explDraw(){for(const e of EXPL){const d=e.draw;if(d)ctx.drawImage(S[e.spr].img,d.sx,d.sy,d.w,e.h,d.x,d.y,d.w,e.h);}}
+// the staggered explosion of a destroyed enemy or ship: 5 explosions 5 frames apart around (x,y)
+function explode5(x,y,type){for(let i=0;i<25;i+=5){const dx=R(21)-10,dy=R(51)-25;explosion(x+dx,y+dy,i,type);if(type===2)sfx('hit');}}
+// ---------- shots (list 0x492540): the ship's shots, the enemy shots and the items share one list, one update and
+// one draw pass. Constructor 0x40f3d0, update and draw 0x40fe10, collisions 0x41e570, walls in the tile pass 0x42c1d0.
+// Types: 0 spread, 1-4 beam stages, 5 powerline, 7 laser, 8/9/10 bounce big/medium/small, 11 rocket; enemy side:
+// 6 blob, 12-18 items (rocket, powerline, shield, spread, laser, bounce, 1up), 19 bullet, 20 walker shot, 21 bull
+// spread, 22 chase shot, 23 mine, 24 elevator shot, 25/26 spikes, 27 enemy powerline, 28 volcano ball.
+// Per type: sprite, frame width, height of the source rectangle, enemy side, frame given by the constructor.
+const SHOT_T=[['spread',18,17,0,1],['beammini',16,8,0,1],['beamsmall',32,16,0,1],['beammed',48,24,0,1],['beambig',64,32,0,1],
+  ['powerline',16,31,0,0],['blob',12,12,1,0],['laser',24,12,0,0],['bounce1',24,24,0,0],['bounce2',18,18,0,0],['bounce3',12,12,0,0],
+  ['rocket',16,16,0,0],['pu_rocket',20,20,1,0],['pu_line',20,20,1,0],['pu_shield',20,20,1,0],['pu_spread',20,20,1,0],
+  ['pu_laser',20,20,1,0],['pu_bounce',20,20,1,0],['pu_oneup',20,20,1,0],['bullet',8,8,1,0],['walkershot',24,24,1,0],
+  ['bullspread',18,13,1,1],['chaseshot',32,14,1,1],['mine',24,24,1,1],['elevatorshot',32,8,1,1],['spike1',16,17,1,1],
+  ['spike2',16,17,1,1],['powerline',16,31,1,1],['volcanoball',16,16,1,1]];
+const ESHOT_TYPE={blob:6,bullet:19,walkershot:20,bullspread:21,chaseshot:22,mine:23,elevatorshot:24,spike1:25,spike2:26,powerline:27,volcanoball:28};
+// x, y = playfield position; rl/rr/rb = source rectangle (left, right, bottom; the top is always 0). The ship-shot
+// collision uses rr and rb as width and height, which makes frames further right hit wider (as in the original).
+function shotNew(x,y,vx,vy,type,frame=0,dmg=0,b22=0){const T=SHOT_T[type],fw=T[1];
+  const s={type,x,y,vx,vy,dmg,b22,spr:T[0],fw,rl:T[4]?frame*fw:0,rr:T[4]?frame*fw+fw:fw,rb:T[2],own:T[3],act:true,
+    t10:0,off:0,tgt:null,tr:0,lf:0,lv:0,g60:0,carrier:null,draw:null};
+  G.shots.push(s);return s;}
+function eshot(x,y,vx,vy,spr,opt={}){return shotNew(x,y,vx,vy,ESHOT_TYPE[spr],opt.frame||0,10);}
 
-// ---------- pickups
-function pickup(kind,stage,shot){sfx('klippikloppi',0.5);
-  if(kind==='spread'||kind==='laser'||kind==='bounce'){const i=ITEMS.indexOf(kind);const target=stage||Math.min(4,P.lvl[i]+1);if(P.lvl[i]<target)P.lvl[i]=target;else G.score+=500;P.weapon=i;sfx('v_'+kind,0.8);}
-  else if(kind==='rocket'){P.rockets=Math.min(16,P.rockets+(shot?4:1));sfx('v_homing',0.8);}   // stealing gives one, shooting the container gives more
-  else if(kind==='line'){P.lines=Math.min(16,P.lines+(shot?2:1));sfx('v_line',0.8);}
-  else if(kind==='shield'){P.shield=720;sfx('v_shield',0.8);sfx('shield',0.5);}
-  else if(kind==='oneup'){G.lives++;sfx('v_oneup',0.8);}}
+// ---------- weapons (player update 0x41ced0)
+// every value below is read from Takatis.exe; frame counts assume the original 75 fps
+const LASER_CD=[24,18,12,6],LASER_DMG=[5,4,3,3];
+function fireSpread(){const lv=P.lvl[0],sp=(dx,vx,vy,fr)=>shotNew(P.x+dx,P.y+20,vx,vy,0,fr,3);
+  sp(35,8,0,0);
+  if(lv>=2){const dx=lv===4?47:45;sp(dx,7,-1,1);sp(dx,7,1,2);}
+  if(lv>=3){sp(50,6,-2,3);sp(50,6,2,4);}
+  if(lv>=4){sp(53,5,-3,5);sp(53,5,3,6);}
+  sfx('spread');P.cool=20;}
+function fireLaser(){const lv=P.lvl[1];   // two shots, each on its own half of the sine wave
+  for(const v of [0,1])shotNew(P.x+38,P.y+21,5,0,7,0,LASER_DMG[lv-1],v);
+  sfx('laser');P.cool=LASER_CD[lv-1];}
+const F32=Math.fround,F02=Math.fround(0.2);
+// laser (0x40fea0): smoke every 5 frames, then the sine offset in float32 arithmetic exactly as in the original
+function laserStep(s){const sg=s.b22?-1:1;
+  if(s.tr===0&&s.act){particle(s.x,s.y+s.off,4);s.tr=5;}s.tr--;
+  if(s.off*sg>=30){s.lf=0;s.lv=-s.lv;}if(s.off*sg<=0){s.lf=1;s.lv=1;}
+  s.off+=(s.lf?2:-2)*sg;s.lv=F32(s.lv-F02);s.off+=Math.trunc(s.lv)*sg;}
+function fireBounce(){const lv=P.lvl[2];
+  shotNew(P.x+40,P.y+17,9,0,8,0,4);
+  if(lv===4){shotNew(P.x+40,P.y+17,8,-3,10,0,3);shotNew(P.x+40,P.y+17,8,3,10,0,3);}
+  sfx('bounce');P.cool=lv<4?30:20;}
+function fireRocket(){P.rockets--;const s=shotNew(P.x+30,P.y+20,6,0,11,0,100);s.rl=32;s.rr=48;sfx('rocket');}
+function fireLine(){P.lines--;for(let y=0;y<=384;y+=32)shotNew(P.x+50,y,15,0,5,0,8);   // 13 segments over the whole height
+  sfx('powerline');}
+function releaseBeam(){const c=P.beam;P.beam=0;   // charge 0..248; exactly 110 and 180 fire nothing, as in the original
+  const lv=c>40&&c<110?1:c>110&&c<180?2:c>180&&c<248?3:c===248?4:0;if(!lv)return;
+  const B=[[34,25,10],[35,20,15],[35,16,20],[35,11,25]][lv-1];
+  shotNew(P.x+B[0],P.y+B[1],8,0,lv,0,B[2]);sfx('beam');}
+// bounce balls hitting an enemy or the boss (0x41efa4, 0x41e6ab): the big ball splits into two medium ones going back
+// (not at stage 1), a medium ball moving left splits into two small ones depending on the face it hit (not at stage 2).
+// b = the box that was hit.
+function bounceSplit(s,b){const lv=P.lvl[2];
+  if(s.type===8&&lv!==1)for(const vy of [9,-9])shotNew(s.x-9,s.y,-9,vy,9,0,5);
+  if(s.type===9&&lv!==2&&s.vx<0){const right=b.x+b.w-s.x;let q;
+    if(s.vy<0)q=b.y+b.h-s.y<=right?[[0,9,-9,9],[0,9,9,9]]:[[9,0,9,-9],[9,0,9,9]];
+    else if(s.vy>0)q=s.rb-(b.y-s.y)<=right?[[0,-9,-9,-9],[0,-9,9,-9]]:[[9,0,9,-9],[9,0,9,9]];
+    if(q)for(const [dx,dy,vx,vy] of q)shotNew(s.x+dx,s.y+dy,vx,vy,10,0,5);}}
+// bounce balls hitting a wall (0x42c52c): big and medium balls split as above; a small ball (and a medium one at
+// stage 2) reflects off the face it hit and dies in a corner. Returns true when the ball survives.
+function bounceWall(s,b){const lv=P.lvl[2];
+  if(s.type===8||(s.type===9&&lv!==2)){bounceSplit(s,b);return false;}
+  let n=0,fa=false,fb=false;const right=b.x+b.w-1-s.x,left=s.fw-(b.x-s.x),below=b.y+b.h-1-s.y,above=s.rb-(b.y-s.y);
+  if(s.vx<0&&s.vy<0){if(below<=right){s.vy=-s.vy;s.y+=11;fa=true;}else{s.vx=-s.vx;s.x+=11;}n++;}
+  if(s.vx<0&&s.vy>0&&!fa){if(above<=right){s.vy=-s.vy;s.y-=11;}else{s.vx=-s.vx;s.x+=11;}n++;}
+  if(s.vx>0&&s.vy<0){if(b.y+b.h-s.y<=left){s.vy=-s.vy;s.y+=11;fb=true;}else{s.vx=-s.vx;s.x-=11;}n++;}
+  if(s.vx>0&&s.vy>0&&!fb){if(above<=left){s.vy=-s.vy;s.y-=11;}else{s.vx=-s.vx;s.x-=11;}n++;}
+  return n<2;}
+// rocket (0x41014e): smoke every 2 frames; without a target it flies straight and searches: every enemy that is
+// neither targeted yet nor of type 0, 39 or 18..21 gets marked and the last one becomes the target, otherwise the
+// last enemy that is not 0 or 39. It steers 6 px per axis, 1 px when closer than 6, and loses a target that is gone.
+const ROCKET_FR=(vx,vy)=>vy<0?(vx>0?1:vx<0?7:0):vy>0?(vx>0?3:vx<0?5:4):(vx>0?2:vx<0?6:-1);
+function rocketStep(s){
+  if(s.tr===0&&s.act){particle(s.x,s.y+R(10)-5,3);s.tr=2;}s.tr--;
+  if(!s.tgt){s.vx=6;s.vy=0;
+    for(const e of G.enemies)if(!e.dead&&!e.rtarget&&e.type!==0&&e.type!==39&&!(e.type>=18&&e.type<=21)){e.rtarget=true;s.tgt=e;}
+    if(!s.tgt)for(const e of G.enemies)if(!e.dead&&e.type!==39&&e.type!==0){e.rtarget=true;s.tgt=e;}}
+  if(s.tgt&&!s.tgt.dead){const ax=d=>d>=6?6:d>0?1:d<=-6?-6:d<0?-1:0;s.vx=ax(s.tgt.x-s.x);s.vy=ax(s.tgt.y-s.y);}else s.tgt=null;
+  const fr=ROCKET_FR(s.vx,s.vy);if(fr>=0){s.rl=fr*16;s.rr=fr*16+16;}}
+// update and draw of one shot (0x40fe10): the shot is drawn at its old position (for the laser including the wave
+// offset), then moved; the pixel tests of the collisions use that drawn position. Enemy shots and items drift with
+// (speed-1); an item stays on its claw (+8/+42) and drifts 1 px per frame more once the claw is gone.
+let VOLCANO_SAFE=false;   // 0x493ffc: "crazy volcanos" in the console, volcano balls become harmless
+function shotStep(s){
+  if(s.type===28&&s.g60===16){s.vy++;s.g60=0;}s.g60++;
+  if(s.type===7)laserStep(s);
+  if(s.type===28){if(s.tr===0&&s.act){particle(s.x+R(4)-2,s.y+R(4)-2,3);s.tr=3;}s.tr--;if(VOLCANO_SAFE)s.own=0;}
+  if(s.type===11)rocketStep(s);
+  s.draw=null;
+  if(s.act){if(s.x>W+s.fw||s.y+s.rb<0||s.y>PH+1||s.x+s.fw<0)s.act=false;   // leaves the playfield (drawn a last time)
+    let x=s.x,y=s.y+s.off,rl=s.rl,rr=s.rr,rb=s.rb,rt=0;   // clipped to the playfield like BltFast needs it
+    if(x<0){rl-=x;x=0;}if(x+s.fw>W)rr-=x+s.fw-W;if(y<0){rt=-y;y=0;}if(y+s.rb>PH+1)rb=PH+1-y;
+    if(rr>rl&&rb>rt)s.draw={x,y,sx:rl,sy:rt,w:rr-rl,h:rb-rt};}
+  if(s.own)s.x-=G.speed-1;
+  if(s.type>=12&&s.type<=18&&s.carrier){if(!s.carrier.dead){s.x=s.carrier.x+8;s.y=s.carrier.y+42;}else s.x-=1;}
+  else{s.x+=s.vx;s.y+=s.vy;}
+  if(s.type>=1&&s.type<=4){   // beams: two frames alternating every 6 frames, shield flares behind them
+    if(++s.t10===6){if(s.rr===s.fw){s.rl=s.fw;s.rr=2*s.fw;}else{s.rl=0;s.rr=s.fw;}s.t10=0;}
+    const on=s.t10%3!==0&&s.act;
+    if(s.type===1&&on)particle(s.x,s.y-3,5);
+    if(s.type===2&&on)particle(s.x,s.y+1,5);
+    if(s.type===3){const d=R(6)-3;if(on)particle(s.x,s.y+d-1,5);particle(s.x,s.y+d+9,5);}
+    if(s.type===4){const d=R(8)-4;if(on){particle(s.x+d+8,s.y+d+1,5);particle(s.x+d+8,s.y+d+16,5);particle(s.x+d,s.y+d+9,5);}}}
+  if(s.type===23&&++s.t10===12){if(s.rr===s.fw){s.rl=s.fw;s.rr=2*s.fw;}else{s.rl=0;s.rr=s.fw;}s.t10=0;}}   // mines blink
+// list update (0x410f30): newest shot first; switched-off shots leave the list
+function shotsStep(){const n=G.shots.length;for(let i=n-1;i>=0;i--){const s=G.shots[i];if(s.act)shotStep(s);else s.draw=null;}
+  G.shots=G.shots.filter(s=>s.act||s.draw);}
+function shotsDraw(){for(let i=G.shots.length-1;i>=0;i--){const s=G.shots[i],d=s.draw;if(d)ctx.drawImage(S[s.spr].img,d.sx,d.sy,d.w,d.h,d.x,d.y,d.w,d.h);}}
+// the shape a shot was drawn with, for the pixel tests
+const shotShape=s=>{const d=s.draw;return d?{img:S[s.spr].img,sx:d.sx,sy:d.sy,w:d.w,h:d.h,x:d.x,y:d.y}:null;};
+// ---------- pickups (0x41eace): no weapon switch, fixed points per item
+function pickup(type){
+  if(type===12){if(P.rockets<16)P.rockets++;G.score+=100;sfx('v_homing');}
+  else if(type===13){if(P.lines<16)P.lines++;G.score+=200;sfx('v_line');}
+  else if(type===14){P.shieldOn=true;P.shieldT=0;G.score+=500;sfx('v_shield');}
+  else if(type>=15&&type<=17){const i=type-15;G.score+=1000;sfx(['v_spread','v_laser','v_bounce'][i]);if(P.lvl[i]<4)P.lvl[i]++;}
+  else if(type===18){G.score+=2500;sfx('v_oneup');G.lives++;}}
 
-// ---------- damage
-function hurtPlayer(amount,wall){if(P.dead||G.state!=='play')return;if(wall){killPlayer();return;}
-  if(P.inv>0||P.shield>0)return;P.energy-=amount;sfx('hit',0.5);P.inv=60;if(P.energy<=0)killPlayer();}
-function killPlayer(){if(P.dead)return;P.dead=90;explode(P.x+24,P.y+17,true,true);for(let i=0;i<3;i++)G.fx.push({spr:'debris'+(1+i),x:P.x+16+i*8,y:P.y+8,vx:(Math.random()-.5)*4,vy:-2-Math.random()*3,f:0,rate:6,n:16,grav:true,life:70});}
-function enemyDie(e){G.score+=e.score;explode(e.x+e.w/2,e.y+e.h/2,e.w>=48);if(e.item)G.items.push({kind:e.item,x:e.x+8,y:e.y+10,w:20,h:20,static:false,t:0,stage:e.stage,shot:true});
-  if(!e.item&&e.type!==9&&Math.random()<0.08)G.items.push({kind:ITEMS[3+Math.floor(Math.random()*3)],x:e.x,y:e.y,w:20,h:20,static:false,t:0});}
-function damageEnemy(e,dmg,sx,sy){if(e.trigger)return false;if(e.hp>=1e9){puff(sx,sy);return true;}e.hp-=dmg;e.flash=4;if(e.hp<=0){enemyDie(e);e.dead=true;}else puff(sx,sy);return true;}
+// ---------- damage: 3 energy, death below 0; enemy shot -1, ramming -2; no invulnerability frames
+function killPlayer(){if(!P.dead)P.dead=400;}   // the death sequence starts with the next frame (0x41c95b)
+// destroyed enemy (ramming 0x40bd13, shot 0x41f247, wall 0x42cb59): 5 staggered explosions and debris
+function enemyBlast(e,debris,dy=0){explode5(e.x,e.y,0);for(let k=0;k<debris;k++)particle(e.x,e.y+dy,0);}
+// a ship shot hits enemy e (0x41ef05): energy, then either the destruction with points, drops and 25 debris or 1-4
+// sparks with a hit sound each; the powerline and the biggest beam (except against type 0) fly on
+function shotHitsEnemy(s,e){e.hp-=s.dmg;
+  if(e.type===23){const dx=R(10)-5,dy=R(10)-5;for(let k=0;k<7;k++)particle(s.x+dx,s.y+dy,5);s.act=false;}
+  if(s.type===8||s.type===9)bounceSplit(s,e);
+  if(e.hp<=0){const small=e.type>=18&&e.type<=21;
+    for(let i=0;i<25;i+=5){const dx=R(21)-10,dy=R(51)-25;   // the points are added once per step (0x41f45f)
+      if(small){explosion(e.x+dx,e.y+dy,i,2);sfx('hit');}else explosion(e.x+dx,e.y+dy,i,0);
+      if(e.type===28)for(const [vx,vy,t] of [[-3,-3,25],[3,3,25],[3,-3,26],[-3,3,26]])shotNew(e.x+28,e.y+28,vx,vy,t,0,10);
+      G.score+=e.score;}
+    if(!small)for(let k=0;k<25;k++)particle(e.x,e.y,0);
+    if(e.type===6){shotNew(e.x+10,e.y+10,-1,0,12);shotNew(e.x-10,e.y+25,-1,0,12);shotNew(e.x+30,e.y+25,-1,0,12);}   // extra load of the claws
+    if(e.type===7)shotNew(e.x+10,e.y+10,-1,0,13);
+    if(!(e.type>=3&&e.type<=9)&&!small&&CON.xmas){const r=R(3);shotNew(e.x,e.y,-1,0,[14,12,13][r]);}   // "merry xmas" (0x41f793)
+    else if(!(e.type>=3&&e.type<=9)&&!small){const r=R(3500);if(r<=20)shotNew(e.x,e.y,-1,0,14);else if(r<=100)shotNew(e.x,e.y,-1,0,12);else if(r<=140)shotNew(e.x,e.y,-1,0,13);}
+    e.dead=true;}
+  else if(e.type!==23){const n=R(4)+1;for(let k=0;k<n;k++){if(e.type===0)particle(e.x-25,e.y-25,2);else particle(e.x-25,s.y-25,1);sfx('hit');}}
+  if(!(s.type===5||(s.type===4&&e.type!==0)))s.act=false;
+  if(s.type===4)explosion(s.x,s.y,0,1);}
 
-// ---------- update
+// ---------- ship (0x41ced0)
+// the ship can only be steered while the level runs (0x49645c = 0) or a boss is there (0x496704)
+const steerable=()=>G.endPhase===0||G.bossActive;
 function updatePlayer(){
-  if(P.dead){P.dead--;if(P.dead===0){G.lives--;if(G.lives<0){G.state='gameover';G.timer=240;sfx('v_bigone',0.8);musicPlay('highscore');}else{const half=Math.floor(G.maxScroll/2/32)*32;startLevel(G.level,G.scroll>half?half:0);}}return;}
-  const sp=3.5;let dy=0;if(K.up()){P.y-=sp;dy=-1;}if(K.down()){P.y+=sp;dy=1;}if(K.left())P.x-=sp;if(K.right())P.x+=sp;
-  P.bank+=(dy*2-P.bank)*0.2;P.x=Math.max(0,Math.min(591,P.x));P.y=Math.max(1,Math.min(382,P.y));
-  if(P.inv>0)P.inv--;if(P.shield>0)P.shield--;if(P.cool>0)P.cool--;
-  // walls
-  if(boxSolid(P.x+8,P.y+9,P.w-16,P.h-18))hurtPlayer(0,true);
-  // weapons
-  // Laser is the only weapon with autofire (manual: "als einziger Schuss ... Dauerfeuer"); Spread and Bounce need a key press per shot
-  const tap=pressed.Space;const held=K.fire();
-  if(P.cool===0){let fired=false;
-    if(P.weapon===1&&P.lvl[1]){if(held){fireLaser();fired=true;}}
-    else if(P.weapon===2&&P.lvl[2]){if(tap){fireBounce();fired=true;}}
-    else if(tap){fireSpread();fired=true;}
-    if(fired&&P.beam>0)releaseBeam();}
-  if(K.beam()){if(!held)P.beam=Math.min(100,P.beam+1.2);P.beamOn=true;}else if(P.beamOn){P.beamOn=false;releaseBeam();}
-  if(pressed.ShiftLeft||pressed.ShiftRight)fireRocket();if(pressed.Enter||pressed.NumpadEnter)fireLine();
-  if(pressed.Digit1)P.weapon=0;if(pressed.Digit2&&P.lvl[1])P.weapon=1;if(pressed.Digit3&&P.lvl[2])P.weapon=2;
-  if(pressed.Numpad0||pressed.KeyQ){for(let i=1;i<=3;i++){const w=(P.weapon+i)%3;if(P.lvl[w]){P.weapon=w;break;}}}
-}
-function updateShots(){
-  for(const s of G.shots){s.f++;
-    if(s.homing){if(!s.target||s.target.dead||s.target.trigger||s.target.x<-50){s.target=null;const c=G.enemies.filter(e=>!e.trigger&&!e.dead&&e.hp<1e9&&e.x>-20&&e.x<W&&e.y>-50&&e.y<PH);if(c.length)s.target=c[Math.floor(Math.random()*c.length)];}
-      if(s.target){const ang=Math.atan2(s.target.y+s.target.h/2-s.y-8,s.target.x+s.target.w/2-s.x-8);const cur=Math.atan2(s.vy,s.vx);let d=ang-cur;while(d>Math.PI)d-=2*Math.PI;while(d<-Math.PI)d+=2*Math.PI;const na=cur+Math.max(-0.08,Math.min(0.08,d));s.vx=Math.cos(na)*5.5;s.vy=Math.sin(na)*5.5;}
-}
-    if(s.sine){s.ph+=0.35;s.y+=Math.cos(s.ph)*3.5;}
-    s.x+=s.vx;s.y+=s.vy;
-    if(s.bounce){const wallV=solidAt(s.x+s.w/2,s.y-1)||solidAt(s.x+s.w/2,s.y+s.h+1)||s.y<0||s.y+s.h>PH;const wallH=solidAt(s.x-1,s.y+s.h/2)||solidAt(s.x+s.w+1,s.y+s.h/2);
-      if(wallV||wallH){
-        if(s.size===1){if(P.lvl[2]>=2)splitBounce(s);else puff(s.x+s.w/2,s.y+s.h/2);s.dead=true;}   // big ball never bounces
-        else if(s.size===2&&P.lvl[2]>=3){splitBounce(s);s.dead=true;}                              // medium splits again at stage 3+
-        else{if(wallV){s.vy=-s.vy;s.y+=s.vy*2;}if(wallH){s.vx=-s.vx;s.x+=s.vx*2;}s.bounces=(s.bounces||0)+1;}}
-      if(s.bounces>12)s.dead=true;}
-    else if(!s.beam&&solidAt(s.x+s.w-2,s.y+s.h/2)){puff(s.x+s.w,s.y+s.h/2);s.dead=true;}
-    else if(s.beam&&solidAt(s.x+s.w-2,s.y+s.h/2)){G.fx.push({spr:'beamexplode',x:s.x+s.w-25,y:s.y+s.h/2-25,f:0,rate:3,n:5});s.dead=true;}
-    if(s.x>W+40||s.x<-60||s.y<-40||s.y>PH+40)s.dead=true;
-    if(s.dead)continue;
-    for(const e of G.enemies){if(e.dead||e.trigger||!hit(s,e))continue;
-      if(e.type===23||e.type===22){puff(s.x+s.w,s.y+s.h/2);s.dead=true;break;} // force field eats shots
-      const ok=damageEnemy(e,s.dmg,s.x+s.w,s.y+s.h/2);
-      if(s.bounce){if(s.size===1){if(P.lvl[2]>=2)splitBounce(s);s.dead=true;}
-        else if(s.size===2&&P.lvl[2]>=3){splitBounce(s);s.dead=true;}
-        else{s.vx=-s.vx;s.x+=s.vx*3;s.bounces=(s.bounces||0)+1;}}
-      else if(!s.pierce)s.dead=true;
-      if(s.dead)break;}
-  }
-  G.shots=G.shots.filter(s=>!s.dead);
-  for(const L of G.lines){L.x+=15;L.t++;for(const sg of L.segs){if(!sg.alive)continue;if(solidAt(L.x+8,sg.y+16)||sg.y+16<0||sg.y+16>PH){sg.alive=false;continue;}
-      for(const e of G.enemies){if(e.dead||e.trigger)continue;if(hit({x:L.x,y:sg.y,w:16,h:32},e)){damageEnemy(e,8,L.x+8,sg.y+16);sg.alive=false;break;}}}
-    if(L.x>W||!L.segs.some(s=>s.alive))L.dead=true;}
-  G.lines=G.lines.filter(l=>!l.dead);
-  for(const s of G.eshots){s.x+=s.vx-(s.world?G.speed:0);s.y+=s.vy;if(s.grav)s.vy+=0.12;s.f++;if(s.x<-20||s.x>W+20||s.y<-20||s.y>PH+20||(!s.ghost&&solidAt(s.x+s.w/2,s.y+s.h/2)))s.dead=true;
-    if(!s.dead&&!P.dead&&hit(s,{x:P.x+10,y:P.y+8,w:P.w-20,h:P.h-16})){s.dead=true;hurtPlayer(1);}}
-  G.eshots=G.eshots.filter(s=>!s.dead);
-}
-function eshot(x,y,vx,vy,spr,opt={}){const s=S[spr];G.eshots.push({x,y,w:s.fw,h:s.fh,vx,vy,spr,f:0,fixed:opt.frame,grav:opt.grav,ghost:opt.ghost,world:opt.world});}
-function shootAt(e,speed=3,spr='bullet',size=8){const cx=e.x+e.w/2,cy=e.y+e.h/2;const ang=Math.atan2(P.y+17-cy,P.x+24-cx);G.eshots.push({x:cx-size/2,y:cy-size/2,w:size,h:size,vx:Math.cos(ang)*speed,vy:Math.sin(ang)*speed,spr,f:0});}
-function updateEnemies(){const l=level();
-  while(G.next<l.objects.length&&l.objects[G.next][1]<=G.scroll+W+8){spawn(l.objects[G.next]);G.next++;}
-  for(const e of G.enemies){e.t++;if(e.flash)e.flash--;
-    if(e.trigger){e.x-=G.speed;}else stepPath(e);
-    if(e.trigger){if(e.x<=P.x+24&&!e.fired){e.fired=true;if(e.end){if(G.level%2===1){if(!G.boss&&!G.bossDone)bossStart();}else G.stageClear=true;}else{G.speed=e.speed;sfx('trigger',0.6);sparks(e.x+8,e.y+8);}}continue;}
-    const cx=e.x+e.w/2,cy=e.y+e.h/2,dist=Math.abs(cx-(P.x+24));
-    switch(e.type){
-      case 0:e.f+=e.rot;break;
-      case 1:e.f=animFrame(e);break;
-      case 2:e.f=animFrame(e);if(e.shoot>0)e.shoot--;
-        if(e.f===1&&e.shoot<=0&&e.x<W&&(Math.random()*11|0)===1){eshot(e.x,e.y+3,-5,0,'blob');eshot(e.x,e.y+33,-5,0,'blob');sfx('laser',0.3);e.shoot=10;}break;
-      case 15:e.f=animFrame(e);if(--e.shoot<=0&&e.x<W){eshot(e.x-15,e.y+7,-4,0,'chaseshot');sfx('laser',0.3);e.shoot=150;}break;
-      case 24:e.f=animFrame(e);if(e.t%(S.e24.frames*5)===S.e24.frames*5-1&&e.x<W){eshot(e.x+60,e.y,-1,0,'mine',{world:true});}break;
-      case 10:case 11:{let dir=1;if(P.x+50<e.x)dir=0;if(P.x>e.x+45)dir=2;e.f=dir;
-        const T=e.type===10?[[-7,-2,-4,-3],[18,-6,-1,-3],[43,-2,3,-3]]:[[-7,36,-4,3],[18,38,-1,3],[43,36,3,3]];
-        e.tt=(e.tt||0)+1;if(e.tt>=[90,70,40][G.diff]&&e.x<W&&e.x>-44){const q=T[dir];eshot(e.x+q[0],e.y+q[1],q[2],q[3],'bullet');sfx('laser2',0.25);e.tt=0;}break;}
-      case 12:e.f=animFrame(e);if(--e.shoot<=0&&e.x<W){eshot(e.x-4,e.y-12,-4,-3,'walkershot');sfx('laser2',0.3);e.shoot=70;}break;
-      case 13:e.f=animFrame(e);break;
-      case 14:e.f=animFrame(e);if(--e.shoot<=0&&e.x<W){for(let k=0;k<3;k++)eshot(e.x-8,e.y+29,-4,[0,-2,2][k],'bullspread',{frame:k});sfx('bigshot',0.4);e.shoot=200;}break;
-      case 16:e.f=animFrame(e);if(dist<260&&!P.dead){P.x+=Math.sign(cx-(P.x+24))*0.9;P.y+=Math.sign(cy-(P.y+17))*0.5;}break;
-      case 17:if(!e.armed&&Math.abs(cx-(P.x+24))<120)e.armed=true;if(e.armed){e.vy=Math.min(8,e.vy+0.35);e.y+=e.vy;if(solidAt(cx,e.y+e.h+1)||e.y>PH){explode(cx,cy,true);e.dead=true;}}break;
-      case 25:e.y+=e.vy;if(solidAt(cx,e.y+e.h+2)||solidAt(cx,e.y-2)||e.y<0||e.y+e.h>PH)e.vy=-e.vy;e.f=Math.floor(e.t/8)%9+(e.vy>0?0:9);if(--e.shoot<=0&&e.x<W){eshot(e.x,e.y+27,-6,0,'elevatorshot');for(let k=0;k<5;k++)G.fx.push({spr:'blob',x:e.x+Math.random()*20-10,y:e.y+20+Math.random()*20-10,vx:-1,vy:0,f:0,rate:5,n:6});sfx('laser',0.3);e.shoot=110;}break;
-      case 26:case 27:{const ph=Math.sin(e.t*0.03+e.ph);e.off=(ph>0?ph:0)*140*(e.type===26?1:-1);break;}
-      case 28:if(!e.staticPath){e.f=animFrame(e);break;}e.x+=e.vx;e.y+=e.vy;if(solidAt(cx,e.y-1)||solidAt(cx,e.y+e.h+1)||e.y<0||e.y+e.h>PH){e.vy=-e.vy;e.y+=e.vy*2;}if(solidAt(e.x-1,cy)||solidAt(e.x+e.w+1,cy)){e.vx=-e.vx;e.x+=e.vx*2;}e.f=Math.floor(e.t/4);break;
-      case 29:e.f=animFrame(e);if(e.x<W&&e.x>-80&&--e.shoot<=0){eshot(e.x+24,e.y-15,Math.floor(Math.random()*8)-4,-Math.floor(Math.random()*6),'volcanoball',{grav:true,ghost:true});sfx('laser2',0.3);e.shoot=50;}break;
-      case 30:e.y+=e.vy;if(solidAt(cx,e.y-1)||solidAt(cx,e.y+e.h+1)||e.y<0||e.y+e.h>PH)e.vy=-e.vy;e.f=animFrame(e);
-        if(--e.shoot<=0&&e.x<W){for(const q of [[16,-7,-1,-2],[-5,16,-3,0],[16,37,-1,2],[40,16,1,0],[0,0,-2,-1],[28,0,0,-1],[0,33,-2,1],[28,33,0,1]])eshot(e.x+q[0],e.y+q[1],q[2],q[3],'bullet');sfx('shield',0.3);e.shoot=120;}break;
-      case 31:e.fuse--;e.f=9-Math.floor(e.fuse/60);if(e.fuse<=0){for(let yy=0;yy<PH;yy+=32)eshot(e.x+50,yy,7,0,'powerline',{ghost:true});sfx('powerline',0.6);explode(cx,cy,true);e.dead=true;}break;
-      case 32:e.f=animFrame(e);if(--e.shoot<=0&&e.x<W){const pick=()=>[-4,-3,3][Math.floor(Math.random()*3)];eshot(e.x+10,e.y+10,pick(),pick(),'blob');sfx('laser2',0.3);e.shoot=50;}break;
-      case 9:e.f=0;break;
-      case 33:e.f=0;if(P.x+49>e.x-70&&P.x<e.x+106&&P.y<e.y+131&&P.y+34>e.y-70){for(let k=0;k<60;k++)G.fx.push({spr:'blob',x:e.x+Math.random()*100-50,y:e.y+20+Math.random()*100-50,vx:(Math.random()-.5)*2,vy:(Math.random()-.5)*2,f:0,rate:6,n:6});
-        sfx('morph',0.7);Object.assign(e,{type:28,hp:120,score:500,w:72,h:72,x:e.x-10,y:e.y-10,spr:'e28',item:null,t:0});setPath(e,e.param);if(e.staticPath){e.vx=-2;e.vy=1.5;}}break;
-      case 22:e.f=animFrame(e);break;case 23:e.f=animFrame(e);break;
-      default:e.f=animFrame(e);
+  if(P.dead){deathStep();return;}
+  const u=K.up(),d=K.down(),l=K.left(),r=K.right(),ok=steerable();
+  if(!u&&!d)P.bank-=Math.sign(P.bank);
+  if((u&&d)||(l&&r))P.bank-=Math.sign(P.bank);   // opposite keys cancel all movement
+  else if(ok){const v=P.spd||3;if(u){P.bank=Math.min(10,P.bank+1);P.y=Math.max(1,P.y-v);}if(d){P.bank=Math.max(-10,P.bank-1);P.y=Math.min(382,P.y+v);}
+    if(l)P.x=Math.max(0,P.x-v);if(r)P.x=Math.min(591,P.x+v);}
+  // engine exhaust (0x41d106): two particles per frame
+  for(let k=0;k<2;k++)particle(P.x-37,P.y+R(10)-20,8);
+  // weapons, not while a boss explodes (0x41d162)
+  if(!bossFlag()){
+    const fire=K.fire()&&ok,ctrl=K.beam()&&ok,L=P.latch;
+    if(ctrl&&!fire)P.beam=Math.min(248,P.beam+2);else releaseBeam();   // releasing Ctrl or pressing fire lets the beam go
+    if(!fire){L.fire=false;L.bounce=false;}
+    if(fire&&P.weapon===0&&!L.fire){L.fire=true;fireSpread();}                     // spread: one shot per key press, no cooldown
+    if(fire&&P.weapon===1&&P.lvl[1]>0&&P.cool===0)fireLaser();                     // laser: the only autofire weapon
+    if(fire&&P.weapon===2&&P.lvl[2]>0&&!L.bounce){L.bounce=true;fireBounce();}     // bounce: one ball per key press
+    const ent=(keys.Enter||keys.NumpadEnter)&&ok,sh=(keys.ShiftLeft||keys.ShiftRight)&&ok;
+    if(ent&&P.lines>0&&!L.line)fireLine();L.line=ent;
+    if(sh&&P.rockets>0&&!L.rocket)fireRocket();L.rocket=sh;
+    // weapon select: 1 spread, 2 bounce, 3 laser, numpad 0 cycles; the voice repeats at most every 50 frames
+    const sel=(w,v)=>{P.weapon=w;if(P.swcool===0){sfx('v_'+v);P.swcool=50;}};
+    if(ok){if(keys.Digit1)sel(0,'spread');if(keys.Digit3)sel(1,'laser');if(keys.Digit2)sel(2,'bounce');
+      if((keys.Numpad0||keys.KeyQ)&&P.swcool===0){if(P.weapon===0)sel(2,'bounce');else if(P.weapon===1)sel(0,'spread');else sel(1,'laser');}}}
+  if(P.cool>0)P.cool--;if(P.swcool>0)P.swcool--;
+  // shield and ship (0x41e027): frames 5-7 of the shield are drawn behind the ship, 0-4 in front of it; the check
+  // after the ship uses the frame the first call may have just advanced, so 7 -> 0 runs the shield twice
+  P.shieldDraw=[];if(P.shieldOn&&P.shieldF>4)shieldStep(0);if(P.shieldOn&&P.shieldF<5)shieldStep(1);}
+function playerFrame(){const b=P.bank;return b===10?4:b>=5?3:b===-10?2:b<=-5?1:0;}
+// shield (0x426420): hums in a loop, turns every 5 frames (8 frames, 0-4 in front of the ship, 5-7 behind it) with a
+// flare, shows every frame up to 500, every 2nd up to 750, then every 4th, and ends after 1000 frames
+function shieldStep(front){if(!P.hum){sfx('shield',true);P.hum=true;}
+  if(P.shieldC===5){P.shieldF=(P.shieldF+1)%8;P.shieldC=0;particle(P.x+R(55)-10,P.y+R(40)-10,5);}
+  const t=P.shieldT;if(t<=500||(t<=750&&t%2===0)||t%4===0)P.shieldDraw.push({f:P.shieldF,front});
+  P.shieldC++;if(++P.shieldT===1000){P.shieldOn=false;P.shieldT=0;P.hum=false;sfxStop('shield');}}
+// death (0x41c95b): the big explosion sound once, 400 frames of explosions around the ship (silent, since the ship
+// is dead) while the timer is above 100; when it runs out a life, a rocket and a powerline less, the lists emptied, a
+// fade out in 5 ms steps, then the level intro or, without lives, game over
+function deathStep(){if(!P.boomed){sfx('bigexplosion');P.boomed=true;}
+  if(--P.dead<=0){G.lives--;if(P.rockets>0)P.rockets--;if(P.lines>0)P.lines--;PART=[];EXPL=[];G.shots=[];   // 0x41c995: the counter ran out
+    fadeOut(5,()=>{if(G.lives<=0){G.go=1;return;}const half=level().wb*16;startLevel(G.level,G.scroll>half?half:0,true);});
+    return;}
+  if(P.dead>100)for(let i=0;i<25;i+=5){const dx=R(21)-10,dy=R(51)-25;if(R(10)===1){explosion(P.x+dx,P.y+dy,i,0);particle(P.x+dx,P.y+dy,0);}}}
+// ---------- pixel collision (0x412f50): two shapes touch where both source pixels are not the colour key
+const MASKS=new Map();
+function maskOf(img){let m=MASKS.get(img);if(m)return m;const c=document.createElement('canvas');c.width=img.width;c.height=img.height;
+  const g=c.getContext('2d');g.drawImage(img,0,0);const d=g.getImageData(0,0,c.width,c.height).data,a=new Uint8Array(c.width*c.height);
+  for(let i=0;i<a.length;i++)a[i]=d[i*4+3]>127?1:0;m={w:c.width,a};MASKS.set(img,m);return m;}
+function shapeOf(sp,f,x,y){const s=S[sp];f=((f|0)%s.frames+s.frames)%s.frames;
+  return {img:s.img,sx:(f%s.cols)*s.fw,sy:Math.floor(f/s.cols)*s.fh,w:s.fw,h:s.fh,x:Math.round(x),y:Math.round(y)};}
+function pixHit(A,B){const x0=Math.max(A.x,B.x),y0=Math.max(A.y,B.y),x1=Math.min(A.x+A.w,B.x+B.w),y1=Math.min(A.y+A.h,B.y+B.h);if(x0>=x1||y0>=y1)return false;
+  const ma=maskOf(A.img),mb=maskOf(B.img);
+  for(let y=y0;y<y1;y++){const ra=(A.sy+y-A.y)*ma.w+A.sx-A.x,rb=(B.sy+y-B.y)*mb.w+B.sx-B.x;for(let x=x0;x<x1;x++)if(ma.a[ra+x]&&mb.a[rb+x])return true;}
+  return false;}
+// first foreground tile (in the column-by-column order of the tile pass 0x42bdb0) whose pixels touch the shape,
+// as {x,y,w,h} in playfield coordinates
+function tileHit(A){const l=level(),ts=T[l.theme].tsa,ox=Math.floor(G.scroll);
+  const c0=Math.max(0,Math.floor((A.x+ox)/32)),c1=Math.min(l.wb-1,Math.floor((A.x+A.w-1+ox)/32)),r0=Math.max(0,Math.floor(A.y/32)),r1=Math.min(12,Math.floor((A.y+A.h-1)/32));
+  for(let c=c0;c<=c1;c++)for(let r=r0;r<=r1;r++){const t=l.B[r*l.wb+c];if(!t)continue;
+    const B={img:ts,sx:(t%10)*32,sy:Math.floor(t/10)*32,w:32,h:32,x:c*32-ox,y:r*32};if(pixHit(A,B))return B;}
+  return null;}
+const shipShape=()=>shapeOf(CON.ship,playerFrame(),P.x,P.y);
+// an enemy's image for the collision routine 0x412f50: the source rectangle of its last blit (0x40b784) at its real x
+// (so across the left edge the image sits too far left); above the screen it sits at y=0 with the rectangle starting
+// at -y, whatever the animation row (0x41ee73, 0x40bbcd)
+function enemyShape(e){if(!e.rect||!e.spr)return null;const yo=e.y+PY;let [l,t,r,b]=e.rect;if(yo<0)t=-yo;
+  return {img:S[e.spr].img,sx:l,sy:t,w:r-l,h:b-t,x:e.x,y:(yo<0?0:yo)-PY};}
+// the ship ramming an enemy (0x40bb61): the boxes (0x40e060), then the pixels; across the left edge the box starts at 0
+// and the image sits at x=0 and the real y with the blitted rectangle
+const boxShip=(x,y,w,h)=>P.x+49>x&&P.x<x+w&&P.y+34>y&&P.y<y+h;
+function ramTest(e){if(!e.rect||!e.spr)return false;
+  if(e.x>=0)return boxShip(e.x,e.y,e.w,e.h)&&pixHit(shipShape(),enemyShape(e));
+  const [l,t,r,b]=e.rect;return boxShip(0,e.y,e.w+e.x,e.h)&&pixHit(shipShape(),{img:S[e.spr].img,sx:l,sy:t,w:r-l,h:b-t,x:0,y:e.y});}
+
+// ---------- tile pass (0x42c1d0), while the foreground is drawn: the presses have moved already, all other enemies are
+// still where the last frame left them. The ship dies on the first touching pixel of a
+// foreground tile (shield or not); every shot, enemy shot and item that touches one is switched off with a hit sound
+// (small explosion and sparks, the biggest beam explodes, bounce balls split or reflect); every enemy except
+// circuits (13) and presses (26/27) whose box overlaps a foreground tile crashes without points
+function tilePass(){
+  if(!P.dead&&tileHit(shipShape()))killPlayer();
+  for(let i=G.shots.length-1;i>=0;i--){const s=G.shots[i];if(!s.act)continue;const A=shotShape(s);if(!A)continue;
+    const b=tileHit(A);if(!b)continue;
+    s.act=false;const ball=s.type>=8&&s.type<=10;
+    if(!ball)particle(s.x-20,s.y-20,2);
+    sfx('hit');
+    if(s.type===11&&s.tgt)s.tgt.rtarget=false;
+    if(s.type===4)explosion(s.x+20,s.y-10,0,1);else if(!ball)explosion(s.x,s.y,0,2);
+    if(ball&&bounceWall(s,b))s.act=true;}
+  for(const e of G.enemies){if(e.dead||e.type===13||e.type===26||e.type===27||!boxInTiles(e.x,e.y,e.w,e.h))continue;
+    for(let k=0;k<25;k++)particle(e.x,e.y-20,0);explode5(e.x,e.y,0);e.dead=true;sfx('explosion');}}
+
+// ---------- collisions (0x41e570), after all updates of the frame
+function collide(){
+  // ship shots against the boss (0x41e59e): a box around the shot position, then the pixels as drawn
+  if(G.bossActive&&BOSS.mask){const bx=V.r32(0x4948b8),by=V.r32(0x496458)-PY,bw=V.r32(0x496438),bh=V.r32(0x49483c);
+    for(let i=G.shots.length-1;i>=0;i--){const s=G.shots[i];if(!s.act||s.own)continue;
+      if(s.x+16<bx||s.x>bx+bw||s.y+s.off+16<by||s.y+s.off>by+bh)continue;
+      const A=shotShape(s);if(!A||!bossMaskHit(A,bx,by+PY)||!V.r8(0x496454))continue;
+      sfx('hit');
+      if(s.type===8||s.type===9)bounceSplit(s,{x:bx,y:by,w:bw,h:bh});
+      for(let k=0,n=R(4)+1;k<n;k++)particle(s.x,s.y,1);
+      const hp=V.r32(0x494050),extra=s.type===11?70:s.type===5?20:s.type>=1&&s.type<=4?[5,20,50,100][s.type-1]:0;
+      V.w32(0x494050,hp-extra-(s.type===11||s.type===5?0:s.dmg));s.act=false;}}
+  // enemy shots and items against the ship: box of the ship (49x31) against the source rectangle (0x41ea62)
+  if(!P.dead)for(let i=G.shots.length-1;i>=0;i--){const s=G.shots[i];if(!s.act||!s.own)continue;
+    if(!(P.x+49>s.x&&P.x<s.x+s.rr&&P.y+31>s.y&&P.y<s.y+s.rb))continue;
+    if(s.type>=12&&s.type<=18)pickup(s.type);
+    else{if(!P.shieldOn){P.energy--;if(P.energy<0)killPlayer();else{sfx('hit');for(let k=0;k<3;k++)particle(s.x,s.y,2);}}
+      if(s.type===23)explosion(s.x-10,s.y-10,0,0);}
+    s.act=false;}
+  // ship shots against the enemies: per enemy every shot, box around the shot position, then the pixels as drawn
+  // (rockets only the box)
+  for(const e of G.enemies){if(e.dead)continue;
+    for(let i=G.shots.length-1;i>=0&&!e.dead;i--){const s=G.shots[i];if(!s.act||s.own)continue;
+      if(s.x+16<e.x||s.x>e.x+e.w||s.y+s.off+16<e.y||s.y+s.off>e.y+e.h)continue;
+      if(s.type!==11){const A=shotShape(s),B=enemyShape(e);if(!A||!B||!pixHit(A,B))continue;}
+      shotHitsEnemy(s,e);}}}
+// ---------- the level routine 0x42bdb0 (also run by the end sequence): background layer, pass 1 of the enemy routine
+// (only the presses), the boss of stage 2-2, the foreground layer with the tile pass, the ship speed back to 3, pass 0
+// (all other enemies), the boss. Presses therefore come out from behind the foreground, all other enemies are drawn on
+// top of it. The blits of both passes are kept for the drawing.
+function levelRoutine(){const press=e=>e.type===26||e.type===27;
+  G.pblits=[];activate(1);for(const e of G.enemies)if(!e.dead&&press(e))enemyStep(e,G.pblits);
+  if(G.bossActive&&G.level===3)bossStep();
+  tilePass();
+  P.spd=3;   // 0x42c065; an attached magnet sets it to 1 again (0x40a610)
+  G.eblits=[];activate(0);for(const e of G.enemies)if(!e.dead&&!press(e))enemyStep(e,G.eblits);
+  if(G.bossActive&&G.level!==3)bossStep();}
+// one call of the enemy routine 0x40a260 for an active enemy: the source rectangle of the current animation frame (cut
+// at the right screen edge with the position before the move), the update, the clipping, the blit (into out), the next
+// animation frame and the ramming test
+let SHAKE=0;   // 0x49647c: set by a shaking faller, cleared by the blit of every other enemy
+function enemyStep(e,out){const A=e.an;e.t++;
+  if(e.type===16&&e.att){A.col=6;A.row=0;P.spd=1;}   // a magnet stuck to the ship shows frame 6 and slows it down (0x40a5e6)
+  let rl=A.col*e.w,rt=A.row*e.h,rr=rl+e.w,rb=rt+e.h;if(W-e.x<e.w)rr-=e.w-(W-e.x);
+  {
+    if(e.type===17){   // faller (0x40a6bb): waits until the ship's nose passes, shakes for 30 frames, then drops at 6 px per frame
+      if(e.dy!==6)e.dy=0;if(P.x+49>e.x&&e.dy!==6&&!e.arm)e.arm=1;
+      if(e.arm&&e.dy!==6){e.arm++;SHAKE=Math.floor(Math.random()*6)-3;}if(e.arm===30)e.dy=6;}
+    stepPath(e);
+    const cx=e.x+e.w/2,cy=e.y+e.h/2,A=e.an;
+    switch(e.type){   // attacks from the enemy update 0x40a260; cooldowns start at 0 when the enemy appears
+      case 2:if(A.cnt===1&&e.cd<=0&&Math.floor(Math.random()*11)===1){eshot(e.x,e.y+3,-5,0,'blob');eshot(e.x,e.y+33,-5,0,'blob');sfx('laser');e.cd=10;}break;
+      case 12:if(e.cd<=0){eshot(e.x-4,e.y-12,-4,-3,'walkershot');sfx('bounce');e.cd=70;}break;
+      case 14:if(e.cd<=0){eshot(e.x-8,e.y+29,-5,0,'bullspread',{frame:0});eshot(e.x-8,e.y+29,-4,-2,'bullspread',{frame:1});eshot(e.x-8,e.y+29,-4,2,'bullspread',{frame:2});sfx('spread');e.cd=200;}break;
+      case 24:if(lastTick(e,4))eshot(e.x+60,e.y,-1,0,'mine');break;
+      case 15:if(e.cd<=0){eshot(e.x-15,e.y+7,-4,0,'chaseshot');sfx('laser');e.cd=150;}break;
+      case 25:if(lastTick(e,18)&&!A.dir){eshot(e.x,e.y+27,-6,0,'elevatorshot');for(let k=0;k<5;k++)particle(e.x+R(20)-10,e.y+R(20)-10+20,3);sfx('laser');}break;
+      case 30:if(lastTick(e,1)&&!A.dir){for(const q of [[16,-7,-1,-2],[-5,16,-3,0],[16,37,-1,2],[40,16,1,0],[0,0,-2,-1],[28,0,0,-1],[0,33,-2,1],[28,33,0,1]])eshot(e.x+q[0],e.y+q[1],q[2],q[3],'bullet');sfx('bigshot');}break;
+      case 32:if(e.cd<=0){const pick=()=>{let v=0;while(v<3&&v>-3)v=Math.floor(Math.random()*8)-4;return v;};const vx=pick(),vy=pick();eshot(e.x+10,e.y+10,vx,vy,'blob');sfx('bounce');e.cd=50;}break;
+      case 33:if(P.x+49>e.x-70&&P.x<e.x+106&&P.y<e.y+131&&P.y+34>e.y-70){   // the fake claw turns into a spike ball (0x40afa0)
+        for(const [n,t] of [[80,5],[80,4],[40,3]])for(let k=0;k<n;k++){const dx=R(100)-50,dy=R(100)-50;particle(e.x+dx,e.y+dy+20,t);}sfx('morph');
+        Object.assign(e,{type:28,hp:120,hp0:120,score:500,w:72,h:72,x:e.x-10,y:e.y-10,spr:'e28',an:{col:0,row:0,cnt:1,dir:0,tick:0}});}break;
+      case 31:if(lastTick(e,10)&&!A.dir){for(let yy=0;yy<PH;yy+=32)eshot(e.x+50,yy,7,0,'powerline');sfx('powerline');}break;   // fires once
+      case 29:if(e.cd===0){const vx=Math.floor(Math.random()*8)-4;let vy=0;while(vy>-1)vy=-Math.floor(Math.random()*6);eshot(e.x+24,e.y-15,vx,vy,'volcanoball');sfx('bounce');e.cd=VOLCANO_SAFE?15:50;}break;
     }
-    if(e.hp<1e9&&e.hp<=ET[e.type][0]/2&&(Math.random()*7|0)===3)G.fx.push({spr:'smoke',x:cx-8,y:cy-8,vx:-0.6,vy:-0.7,f:0,rate:2,n:16});
-    if(WALL_DIE.has(e.type)&&e.x+e.w<W&&(e.dx||e.dy)&&solidAt(cx,cy)){explode(cx,cy,e.w>=48);e.dead=true;continue;}   // smashed against the level
-    if(e.x<-e.w-700||e.x>W+700||e.y<-300||e.y>780)e.dead=true;
-    if(e.dead||P.dead)continue;
-    const eb={x:e.x,y:e.y+(e.off||0),w:e.w,h:e.h};const pb={x:P.x+10,y:P.y+8,w:P.w-20,h:P.h-16};
-    if(hit(eb,pb)){
-      if(e.type===9){if(e.item)pickup(e.item,e.stage,false);else sfx('hit',0.3);e.dead=true;continue;}
-      if(e.type===33){explode(cx,cy,true);e.dead=true;hurtPlayer(2);continue;}
-      if(e.type===26||e.type===27){hurtPlayer(0,true);continue;}
-      if(P.shield>0){if(e.hp<1e9){G.score+=e.score;explode(cx,cy,e.w>=48);e.dead=true;}}   // shield rams normal enemies to pieces
-      else hurtPlayer(2);
-    }
+    e.cd--;
+    if(e.hp<=Math.trunc(e.hp0/2)&&R(7)===3)particle(e.x+Math.trunc(e.w/2),e.y+Math.trunc(e.h/2),3);   // damaged enemies smoke (0x40aa02)
   }
-  G.enemies=G.enemies.filter(e=>!e.dead);
-  for(const it of G.items){it.t++;it.x-=G.speed;if(!it.static){it.x-=0.3;it.y+=Math.sin(it.t*0.05)*0.4;}
-    if(it.x<-30)it.dead=true;if(!P.dead&&hit(it,{x:P.x,y:P.y,w:P.w,h:P.h})){pickup(it.kind,it.stage,it.shot);it.dead=true;}}
-  G.items=G.items.filter(i=>!i.dead);
-  for(const f of G.fx){f.f+=1/f.rate;if(f.vx!==undefined){f.x+=f.vx;f.y+=f.vy;if(f.grav)f.vy+=0.15;}if(f.life!==undefined){if(--f.life<=0)f.dead=true;}else if(f.f>=f.n)f.dead=true;}
-  G.fx=G.fx.filter(f=>!f.dead);
-}
+  // clipping (0x40b5ed): the left edge; far outside the enemy is dropped; above and below the playfield (y 0..433 on
+  // the screen) the rectangle is cut without regard to the animation row, except for the asteroid (rows of 54 px)
+  const yo=e.y+PY,ro=e.type===0?A.row*54:0;
+  if(e.x<0)rl-=e.x;
+  if(e.x<-e.w||yo<-300||yo>780)e.dead=true;
+  if(yo<0)rt=-yo+ro;if(yo+e.h>433)rb=433-yo+ro;
+  // blit (0x40b6ee): at x=0 across the left edge, otherwise shaken by 0x49647c, which only a faller that started to
+  // shake leaves alone; BltFast has no clipper, a rectangle that does not fit draws nothing
+  if(e.type!==17||!(e.arm>=1))SHAKE=0;
+  const s=S[e.spr],bx=e.x<0?0:e.x+SHAKE,by=yo<0?0:yo;e.rect=[rl,rt,rr,rb];
+  if(s&&bltOk(bx,by,e.rect,s.w,s.h))out.push({img:s.img,sx:rl,sy:rt,w:rr-rl,h:rb-rt,x:bx,y:by-PY});
+  animStep(e);
+  if(e.dead||P.dead)return;
+  if(ramTest(e))ram(e);}
+// ramming (0x40bb61): without the shield it costs 2 energy and removes the enemy (no hit sound); with the shield only
+// 26/27/39 kill. An enemy overlapping the left screen edge (0x40bdf1) kills outright without the shield, and with it
+// the presses cost 2 energy. Destroyed enemies give their points once, 5 explosions and 15 debris.
+function ram(e){const blast=()=>{e.dead=true;G.score+=e.score;enemyBlast(e,15);};
+  if(e.x>=0){
+    if(e.type===16){e.x=P.x+30;e.y=P.y;e.att=true;return;}   // the magnet sticks to the ship
+    if(!P.shieldOn){P.energy-=2;e.dead=true;if(P.energy<0)killPlayer();}
+    else if(e.type===26||e.type===27||e.type===39)killPlayer();
+    if(![26,27,39,22,23].includes(e.type))blast();}
+  else{if(!P.shieldOn)killPlayer();
+    if(e.type===16){e.x=P.x+30;e.y=P.y;e.att=true;}
+    if(P.shieldOn&&(e.type===26||e.type===27)){P.energy-=2;e.dead=true;if(P.energy<0)killPlayer();}
+    if(![26,27,22,23].includes(e.type))blast();}}
+// ---------- frame (order of the original main loop 0x41575a / 0x41c820)
 function updatePlay(){
-  if(!P.dead)G.scroll+=G.speed;
-  if(G.scroll>=G.maxScroll){G.scroll=G.maxScroll;if(G.level%2===1&&!G.boss&&!G.bossDone){bossStart();}else if(!G.boss)G.stageClear=true;}
-  if(G.boss)bossUpdate();
-  updatePlayer();updateShots();updateEnemies();
-  if(G.stageClear&&!P.dead){G.state='clear';G.timer=200;G.score+=1000;G.lives++;sfx('bigshot',0.6);musicPlay('clear');}
-}
+  if(G.level===6){if(G.scroll===4270&&G.speed===1)G.speed=-2;else if(G.scroll===2970&&G.speed===-2)G.speed=2;}   // 4-1 scrolls backwards (0x41575f)
+  G.scroll+=G.speed;
+  levelRoutine();   // enemies, boss, tile pass (0x42bdb0)
+  updatePlayer();explStep();partStep();shotsStep();collide();
+  G.enemies=G.enemies.filter(e=>!e.dead);
+  levelEnd();}
+
+// ---------- end of a level (0x4157a6 ff.)
+// 0x49645c: 1 = end of the level reached, 2 = transition, 3 = boss destroyed
+const WAVE={ph:0,up:false,prev:null,cur:null};   // 0x496708/0x49670c are never reset, not even for a new game
+function levelEnd(){const bossLv=G.level%2===1,flag=bossFlag();
+  // fly out to the right at 4 px per frame; beyond x=585 the drive flares, past 640 the transition starts
+  if((G.endPhase===1||G.endPhase===3)&&!P.dead&&(!bossLv||G.endPhase===3)){P.x+=4;
+    if(P.x>585)for(let k=0;k<20;k++){const dx=R(20),dy=R(20);particle(P.x+dx,P.y+dy,5);}
+    if(P.x>640)G.endPhase=2;}
+  // transition: "morph", after 50 frames the stage clear music and the screen starts to wave, after 430 frames a
+  // 2 s fade to black and the next level with one life more
+  if(G.endPhase===2&&!P.dead){G.endT++;
+    if(G.endT===1)sfx('morph');
+    if(G.endT>=50){if(!G.clearMusic){G.clearMusic=true;musicPlay('clear');}waveStep();}
+    if(G.endT>430){G.endT=0;fadeOut(20,()=>{musicStop();MUSIC.want=null;G.lives++;startLevel(G.level+1);});return;}}
+  // the end of the level (not while a destroyed boss has the phase at 3)
+  if(G.scroll>G.maxScroll&&!P.dead&&flag!==0xff&&G.endPhase!==2)G.endPhase=1;
+  // boss levels: "Big one" 640 px before the end, from the end on the scrolling stops, the ship glides to (0,200),
+  // the level music fades out over 100 frames, the boss music starts, and the boss comes once the ship is in place
+  if(bossLv&&G.scroll>G.maxScroll-640&&!P.dead&&!G.bigone&&flag!==0xff){sfx('v_bigone');G.bigone=true;G.bossFade=100;}
+  if(bossLv&&G.scroll>G.maxScroll&&!P.dead&&flag!==0xff){if(G.speed)G.savedSpeed=G.speed;G.speed=0;
+    if(!G.bossActive){if(P.x>0)P.x--;if(P.y<184)P.y++;if(P.y>184)P.y--;}
+    if(MUSIC.want!=='boss')MUSIC.level=G.bossFade*2.5/256;   // FMUSIC_SetMasterVolume(level songs, counter*2.5)
+    if(G.bossFade===0&&MUSIC.want!=='boss'){MUSIC.level=1;musicPlay('boss');}
+    if(G.bossFade>0)G.bossFade--;
+    if(G.bossFade===0&&P.x===0&&P.y===184&&!G.bossActive)bossActivate();}}
+// the waving screen (0x415960): every playfield row of the last frame is shifted by sin(y*0.05+phase)*18, the gap
+// is filled with row 430 of title.gfx; the phase swings between 0 and 30 in steps of 0.076
+function waveStep(){if(!WAVE.prev){WAVE.prev=offscreen();WAVE.cur=offscreen();snapshot(WAVE.prev);}
+  const g=WAVE.cur.getContext('2d'),src=WAVE.prev,t=S.title.img,F05=Math.fround(0.05);
+  for(let y=PY;y<PY+PH;y++){const w=Math.sin(y*F05+WAVE.ph)*18,s=Math.trunc(w);
+    g.drawImage(t,0,430,W,1,0,y,W,1);
+    if(w>=0){if(W-s>0)g.drawImage(src,0,y,W-s,1,s,y,W-s,1);}else g.drawImage(src,-s,y,W+s,1,0,y,W+s,1);}
+  [WAVE.prev,WAVE.cur]=[WAVE.cur,WAVE.prev];
+  if(!WAVE.up){WAVE.ph=Math.fround(WAVE.ph+Math.fround(0.076));if(!(WAVE.ph<30))WAVE.up=true;}
+  if(WAVE.up){WAVE.ph=Math.fround(WAVE.ph-Math.fround(0.076));if(WAVE.ph<=0)WAVE.up=false;}}
+function offscreen(){const c=document.createElement('canvas');c.width=W;c.height=H;return c;}
+function snapshot(c){const g=c.getContext('2d'),keep=ctx;ctx=g;try{drawPlayfield();}finally{ctx=keep;}}
+
+// ---------- frame of 32x32 tiles from rahmen.gfx (0x41ff00): w+1 by h+1 tiles, corners, edges and fill
+function rahmen(x,y,w,h){const im=S.rahmen.img,b=(sx,sy,dx,dy)=>ctx.drawImage(im,sx,sy,32,32,dx,dy,32,32);
+  b(0,0,x,y);b(0,64,x,y+h*32);b(64,0,x+w*32,y);b(64,64,x+w*32,y+h*32);
+  for(let i=1;i<h;i++){b(0,32,x,y+i*32);b(64,32,x+w*32,y+i*32);}
+  for(let i=1;i<w;i++){b(32,0,x+i*32,y);b(32,64,x+i*32,y+h*32);}
+  for(let i=1;i<w;i++)for(let j=1;j<h;j++)b(32,32,x+i*32,y+j*32);}
+// ---------- save screen after bosses 1-5 (state 7, 0x423400): the last frame, a frame, six slots with stage, lives,
+// weapon stages, rockets, powerlines, skill and score. Cursor keys move (hit sound), Space/Enter saves the next
+// stage into the slot, Escape continues without saving (beam sound).
+function saveStart(){G.state='save';G.slots=loadSlots();G.saveImg=offscreen();G.saveImg.getContext('2d').drawImage(cv,0,0);}
+function saveStep(){
+  if(keys.ArrowUp&&G.sel>0&&!G.latch){G.sel--;G.latch=true;sfx('hit');}
+  if(keys.ArrowDown&&G.sel<5&&!G.latch){G.sel++;G.latch=true;sfx('hit');}
+  if(keys.Escape){waitUp(()=>keys.Escape,()=>{sfx('beam');G.sel=0;G.state='play';});return;}
+  if(noCursor())G.latch=false;
+  if(keys.Space||enter())waitUp(()=>keys.Space||enter(),()=>{saveSlot(G.sel,{level:G.level+1,skill:G.diff,weapon:P.weapon,spread:P.lvl[0],
+    laser:P.lvl[1],bounce:P.lvl[2],rockets:P.rockets,lines:P.lines,lives:G.lives,shield:P.shieldT,score:G.score,cheater:G.cheater});G.state='play';});}
+function drawSave(){ctx.drawImage(G.saveImg,0,0);rahmen(64,96,15,8);
+  text('Save Game',275,120,1);text('Escape - Continue without Saving',198,350,0);
+  text('Slot',105,165,0);text('Stage',150,165,0);text('Lives',195,165,0);text('Skill Score',455,165,0);slotIcons(159);
+  for(let i=0;i<6;i++)slotRow(G.slots[i],i,200+i*25);
+  bf('star',48,0,72,24,90,194+G.sel*25);}
+// ---------- the end (state 10, 0x42a250): Endscreen.gfx behind the enemy parade of Level/ot.lvl (its foreground tiles
+// are the letters of bigfont.gfx), scrolling 1 px per frame and starting over after 13200; below it the text at
+// 0x4766d8 in row 6 of the font, every screen column moved by a sine wave whose size swings between -5 and 0.3
+// (F7/F8 change it); the walker bobs on the left; the edges are faded by fadeleft/faderight. Escape ends the game.
+const END={cv:null,txt:0,px:10,sub:2,amp:0,up:false,cnt:0,ys:new Int16Array(640),off:0,buf:'',bufPx:10};
+function endStart(){G.state='end';G.level=12;const l=level();   // level 0xff: ot.lvl, the ship back at (10,200)
+  G.scroll=0;G.speed=l.speed;G.maxScroll=l.wb*32-640;G.enemies=[];G.shots=[];PART=[];EXPL=[];G.objSt=new Uint8Array(l.objects.length);G.pblits=[];G.eblits=[];
+  G.bossActive=false;BOSS.phase=null;G.endPhase=0;G.gamma=100;sfxStop('shield');P.x=10;P.y=184;
+  if(!END.cv){END.cv=document.createElement('canvas');END.cv.width=800;END.cv.height=16;}
+  Object.assign(END,{txt:0,px:10,sub:2,amp:0,up:false,cnt:0});musicPlay('end');}
+function endStep(){
+  if(keys.Escape){waitUp(()=>keys.Escape,()=>{G.state='play';G.go=1;});return;}
+  G.scroll++;levelRoutine();G.enemies=G.enemies.filter(e=>!e.dead);shotsStep();partStep();explStep();
+  if(G.scroll>13200)G.scroll=0;
+  const txt=DATA.outro.text;END.buf=txt.substr(END.txt,70);END.bufPx=END.px;
+  if(END.sub===0){END.px--;END.sub=1;}END.sub--;
+  if(END.px<0){const c=txt.charCodeAt(END.txt)||0;END.px=FW[c]||10;if(++END.txt>1040)END.txt=0;}
+  const f=Math.fround,A=()=>END.amp;
+  if(keys.F7)END.amp=f(A()-f(0.1));if(keys.F8)END.amp=f(A()+f(0.1));
+  if(!END.up)END.amp=f(A()-f(0.05));else END.amp=f(A()+f(0.08));
+  if(A()<-5){END.up=true;END.amp=-5;}if(A()>f(0.3)){END.up=false;END.amp=f(0.3);}
+  let ph=0;for(let x=0;x<W;x++){END.ys[x]=Math.trunc(Math.sin(f(0.005)*A()*x+ph)*-5*A()*-1);ph=f(ph+f(0.01));if(ph>=10)ph=0;}
+  END.off=Math.trunc(Math.sin(END.cnt*f(0.0363)+ph)*45);if(++END.cnt===300000)END.cnt=0;}
+function drawEnd(){const l=level();ctx.drawImage(S.endscreen.img,0,0);
+  ctx.save();ctx.translate(0,PY);
+  G.pblits.forEach(blit);drawLayer(l.B,l.wb,S.bigfont.img,Math.floor(G.scroll));G.eblits.forEach(blit);
+  shotsDraw();partDraw();explDraw();ctx.restore();
+  const g=END.cv.getContext('2d'),keep=ctx;g.clearRect(0,0,800,16);ctx=g;try{text(END.buf,END.bufPx,0,6);}finally{ctx=keep;}
+  for(let x=0;x<W;x++)ctx.drawImage(END.cv,x,0,1,16,x,END.ys[x]+150,1,16);
+  const o=END.off,sx=o>24&&o<50?0:o>0&&o<25?43:86;ctx.drawImage(S.e12.img,sx,0,43,54,130,o+57,43,54);
+  ctx.drawImage(S.fadeleft.img,0,0);ctx.drawImage(S.faderight.img,520,0);}
 
 // ---------- render
 function drawLayer(map,w,ts,ox){const c0=Math.max(0,Math.floor(ox/32)),c1=Math.min(w-1,Math.floor((ox+W)/32));
@@ -411,150 +854,430 @@ function drawPlayfield(){const l=level(),th=T[l.theme];
   ctx.save();ctx.beginPath();ctx.rect(0,PY,W,PH);ctx.clip();ctx.translate(0,PY);
   ctx.drawImage(th.stc,0,0);
   drawLayer(l.A,l.wa,th.tsb,Math.floor(G.scroll/2));
-  // behind-player things
-  for(const it of G.items)frame(ITEM_SPR[it.kind],0,it.x,it.y+Math.sin(it.t*0.1)*2);
-  for(const e of G.enemies){if(e.trigger){if(G.info){ctx.fillStyle=e.end?'#ff5c5c':'#5ad0f0';ctx.fillRect(e.x,e.y,16,16);}continue;}
-    if(!e.spr)continue;if(e.flash&&e.flash%2){ctx.globalAlpha=0.5;}frame(e.spr,e.f,e.x,e.y+(e.off||0),e.dir<0);ctx.globalAlpha=1;
-    if(e.type===9&&e.item)frame('powerups',ITEM_FRAME[e.item],e.x+11,e.y+41);}   // the claw carries its powerup visibly
+  // draw order of 0x42bdb0: the presses between the two layers, all other enemies on top of the foreground, each as
+  // the enemy routine blitted it
+  G.pblits.forEach(blit);
+  if(G.bossActive&&G.level===3)bossDraw();
   drawLayer(l.B,l.wb,th.tsa,Math.floor(G.scroll));
-  for(const L of G.lines)for(const sg of L.segs)if(sg.alive)frame('powerline',Math.floor(L.t/3),L.x,sg.y);
-  for(const s of G.shots){if(s.kind==='rocket'){const k=(Math.round(Math.atan2(s.vy,s.vx)/(Math.PI/4))+8)%8;frame('rocket',[2,1,4,3,6,7,0,5][k],s.x,s.y);}else frame(s.kind,s.fixed!==undefined?s.fixed:Math.floor(s.f/(s.anim?4:2)),s.x,s.y);}
-  if(G.boss)bossDraw(G.boss);
-  for(const s of G.eshots)frame(s.spr,s.fixed!==undefined?s.fixed:Math.floor(s.f/4),s.x,s.y);
-  if(!P.dead){const vis=P.inv>0?(Math.floor(G.frame/3)%2===0):true;if(vis)frame('player',2+Math.round(P.bank),P.x,P.y);
-    if(P.shield>0&&(P.shield>120||Math.floor(G.frame/4)%2))frame('shield',Math.floor(G.frame/4),P.x-8,P.y);
-}
-  for(const f of G.fx)frame(f.spr,f.f,f.x,f.y);
+  G.eblits.forEach(blit);
+  if(G.bossActive&&G.level!==3)bossDraw();
+  // then, as in 0x41c820: the ship with its shield, the explosions, the particles and the shot list. Ship and shield
+  // are blitted without clipper and vanish once they touch the right edge.
+  if(!P.dead){for(const d of P.shieldDraw)if(!d.front&&P.x+56<=W)frame('shield',d.f,P.x,P.y);
+    if(P.x+49<=W)frame(CON.ship,playerFrame(),P.x,P.y);
+    for(const d of P.shieldDraw)if(d.front&&P.x+56<=W)frame('shield',d.f,P.x,P.y);}
+  explDraw();partDraw();shotsDraw();
   ctx.restore();}
 function drawHUD(){const hb=S.hudbottom;ctx.drawImage(S.hudtop.img,0,0);ctx.drawImage(hb.img,0,H-48);
-  // weapon pips: spread @x~128, laser @x~230, bounce @x~330 (4 pips of 4px)
-  const pip=(x,n,sel)=>{for(let i=0;i<4;i++){ctx.fillStyle=i<n?(sel?'#ffe66d':'#6fd3ff'):'#1a2a44';ctx.fillRect(x+i*6,5,4,7);}};
-  pip(127,P.lvl[0],P.weapon===0);pip(232,P.lvl[1],P.weapon===1);pip(331,P.lvl[2],P.weapon===2);
-  ctx.fillStyle='#fff';ctx.font='bold 11px monospace';ctx.fillText(P.rockets,415,12);ctx.fillText(P.lines,523,12);
+  // weapon stages (0x41c34c): one ws.gfx block per stage, 7 px apart; spread x=122, bounce x=222, laser x=322
+  for(const [x,n] of [[122,P.lvl[0]],[222,P.lvl[2]],[322,P.lvl[1]]])for(let i=0;i<n;i++)ctx.drawImage(S.ws.img,x+i*7,3);
+  num(P.rockets,422+String(P.rockets).length*4,3);num(P.lines,522+String(P.lines).length*4,3);
   num(G.lives,98,457);num(level().stage,160,457);num(G.score,514,457);
-  for(let i=0;i<3;i++){if(i<P.energy)frame('energy',0,195+i*96,439);}
-  if(P.beam>0){const s=S.beamload;const wdt=Math.round(248*P.beam/100);ctx.drawImage(s.img,0,0,wdt,24,197,452,wdt,24);}
-  if(G.boss)bossHUD();
-  if(G.info){ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(0,PY,250,110);const rows=['Scrollposition: '+Math.round(G.scroll),'Scrollspeed   : '+G.speed,'Anzahl Enemys : '+G.enemies.filter(e=>!e.trigger).length,'Anzahl Shots  : '+(G.shots.length+G.eshots.length),'Anzahl Expl.  : '+G.fx.length,'Next Object   : '+G.next+'/'+level().objects.length];rows.forEach((r,i)=>text(r,4,PY+4+i*17,3));}}
+  for(let i=0;i<3;i++){if(i<P.energy)frame('energy',0,196+i*96,439);}
+  if(P.beam>0){const s=S.beamload;const wdt=P.beam;ctx.drawImage(s.img,0,0,wdt,24,197,452,wdt,24);}
+  bossHUD();
+  if(G.info){ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(0,PY,250,110);const rows=['Scrollposition: '+Math.round(G.scroll),'Scrollspeed   : '+G.speed,'Anzahl Enemys : '+G.enemies.filter(e=>!e.trigger).length,'Anzahl Shots  : '+G.shots.length,'Anzahl Expl.  : '+EXPL.length,'Objekte aktiv : '+G.objSt.reduce((a,v)=>a+v,0)+'/'+level().objects.length];rows.forEach((r,i)=>text(r,4,PY+4+i*17,3));}}
 function drawCenter(str,y,row=0){text(str,W/2,y,row,1);}
-const HELP=[['STEUERUNG','CURSOR / NUMPAD  BEWEGEN','SPACE  PRIMAERWAFFE','STRG  BEAM AUFLADEN','SHIFT  RAKETE','RETURN  POWERLINE','1 2 3  WAFFE WAEHLEN','P  PAUSE   ESC  MENUE'],
- ['PRIMAERWAFFEN','SPREAD SHOT  4 STUFEN','  BREITER STREUWINKEL','LASER  4 STUFEN','  DAUERFEUER, SCHNELL','BOUNCE  4 STUFEN','  TEILT SICH AN WAENDEN'],
- ['SEKUNDAERWAFFEN','BEAM  4 LADESTUFEN','RAKETE  ZIELSUCHEND','POWERLINE  KRAFTFELD','SCHILD  KURZ UNVERWUNDBAR','ONE UP  EXTRALEBEN'],
- ['CONTAINER','TRAEGER TRAGEN EXTRAS','ABSCHIESSEN GIBT MEHR','ALS DAS EINSAMMELN','','SPEED TRIGGER AENDERN','DIE SCROLLGESCHWINDIGKEIT'],
- ['DIE STORY','DU SITZT AM STEUERKNUEPPEL','EINES RAUMGLEITERS UND','FLIEGST DURCH EINE WELT','VOLLER FINSTERER GESTALTEN','','LETS BLAST THESE ALIENS']];
-const CREDITS=['TAKATIS','A TRIBUTE TO MANFRED TRENZ','','PROGRAMMIERUNG','HEIKO KALISTA','','GRAFIK MUSIK LEVELDESIGN','JOERG M WINTERSTEIN','','3D MODELLE','MICHAEL MATZKA','','VOICES','ALEXANDRA HERTSTEIN','SEB KUGLER','','(C) 2002 POKE53280','','BROWSER REMAKE','AUS DEN ORIGINALDATEN'];
-function drawMenus(){
-  if(G.state==='menu'){const bw=224,bh=64;panel(W/2-bw/2-16,28,bw+32,bh*MENU_ITEMS.length+24);
-    for(let i=0;i<MENU_ITEMS.length;i++)ctx.drawImage(S.menu.img,(i===G.menuSel?0:224),i*64,224,64,W/2-bw/2,40+i*64,224,64);
+// ========== the screens outside the game: the states of 0x4936b0 ==========
+// Every screen is a routine that runs once per frame and draws into the persistent buffer SCR, the way the original
+// draws into its back buffer: a screen only redraws what it covers, the rest stays from before. Fades (100 steps of the
+// gamma ramp) and the loops that wait for a key to be released hold everything else, like the original's busy loops.
+const SCR=document.createElement('canvas');SCR.width=W;SCR.height=H;const SCX=SCR.getContext('2d');
+function onScr(fn){const keep=ctx;ctx=SCX;try{fn();}finally{ctx=keep;}}
+// BltFast of the rectangle l,t,r,b of a sprite sheet to x,y: without clipper nothing is drawn unless it fits
+function bf(k,l,t,r,b,x,y){const s=S[k];if(bltOk(x,y,[l,t,r,b],s.w,s.h))ctx.drawImage(s.img,l,t,r-l,b-t,x,y,r-l,b-t);}
+const bw=(k,x,y)=>bf(k,0,0,S[k].w,S[k].h,x,y);
+const black=()=>{ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);};
+const enter=()=>keys.Enter||keys.NumpadEnter;
+const SHELL=new Set(['boot','intro','title','menu','newgame','options','joystick','help','hiscore','credits']);
+const onShell=()=>SHELL.has(G.state)||G.state==='ready'||(G.state==='play'&&(G.over||G.go||CON.open));
+// fades (0x4124f0 in, 0x412620 out): each of the 100 gamma steps is held for ms, a fade out ends with both buffers
+// black. Escape during any fade sets 0x496460 for good: from then on every fade ends at once, provided the start
+// sequence got past its loading screen (0x494898 > 3).
+function snapScreen(){const c=offscreen();c.getContext('2d').drawImage(onShell()?SCR:cv,0,0);return c;}
+function fadeIn(ms,done){G.blk={d:1,i:0,ms,t:0,done,img:snapScreen()};blkCheck();}
+function fadeOut(ms,done){G.blk={d:-1,i:100,ms,t:0,done,img:snapScreen()};blkCheck();}
+// remake: the original only skips from 0x494898 > 3 on (the first intro picture), here from the start
+function blkCheck(){if(G.escLatch)blkEnd();else G.gamma=G.blk.i;}
+function blkEnd(){const b=G.blk;G.blk=null;G.gamma=100;if(b.d<0)onScr(black);if(b.done)b.done();}
+function blkStep(){const b=G.blk;b.t+=1000/FPS;
+  while(G.blk===b&&b.t>=b.ms){b.t-=b.ms;if(keys.Escape)G.escLatch=true;b.i+=b.d;if(b.i>=100||b.i<=0)blkEnd();else blkCheck();}}
+// "while(GetAsyncKeyState(k)&0x8000);": nothing runs until the key is up
+function waitUp(test,fn){G.wait={test,fn};}
+// cursor keys with the latch 0x4966ab: one step per press
+function stepKeys(max,withSound,lr){const u=keys.ArrowUp,d=keys.ArrowDown;
+  if(u&&G.sel>0&&!G.latch){G.latch=true;G.sel--;if(withSound)sfx('hit');}
+  if(d&&G.sel<max&&!G.latch){G.latch=true;G.sel++;if(withSound)sfx('hit');}}
+const noCursor=()=>!keys.ArrowUp&&!keys.ArrowDown&&!keys.ArrowLeft&&!keys.ArrowRight;
+
+// ---------- songs: 0x49486c holds the number of the loaded one
+const SONGS=['title','credits','highscore','level1','level2','level3','level4','level5','level6','boss','clear'];
+const SONG_ID={title:1,credits:2,highscore:3,level1:4,level2:5,level3:6,level4:7,level5:8,level6:9,boss:10,end:11,clear:12};
+
+// ---------- options (Options.ini): music and sound volume 0..100, the highscore effect, smoke behind debris
+// remake: both volumes start at 20 instead of 100 (key v2, so earlier stored values do not count)
+const OPTS={music:20,sound:20,effect:true,smoke:false};
+try{Object.assign(OPTS,JSON.parse(localStorage.getItem('takatis.options2'))||{});}catch(e){}
+function optsApply(){OPT.smoke=OPTS.smoke;G.sfxVol=OPTS.sound/100;MUSIC.vol=0.55*OPTS.music/100;}
+function optsSave(){try{localStorage.setItem('takatis.options2',JSON.stringify(OPTS));}catch(e){}}
+
+// ---------- stars (0x424100): with a chance of 1 in 10 a star appears in the first free of 200 slots at a random place
+// (mode 1: x 20..599, y 40..134; mode 2: x 20..639, y 40..499) and shows the 8 frames of star.gfx, 5 frames each
+const STARS=Array.from({length:201},()=>({on:false,x:0,y:0,f:0,c:0,d:0}));
+function stars(mode){const rx=mode===1?580:620,ry=mode===1?95:460;
+  if(R(10)===0){let k=0;while(STARS[k].on&&k<200)k++;const s=STARS[k];s.on=true;s.x=R(rx)+20;s.y=R(ry)+40;s.f=0;s.d=5;s.c=5;}
+  for(let k=0;k<200;k++){const s=STARS[k];if(!s.on)continue;
+    if(--s.c===0){s.c=s.d;if(++s.f>=8)s.on=false;}
+    const c=s.f%3,r=Math.floor(s.f/3);bf('star',c*24,r*24,c*24+24,r*24+24,s.x,s.y);}}
+
+// ---------- start (state 2, 0x429340): the Poke53280 logo, the loading screen, two intro pictures and the title, each
+// faded in and out. From the first intro picture on (0x494898 > 3) Escape skips to the title.
+function introPic(n){black();const ir=(l,t,r,b,x,y)=>bf('intro',l,t,r,b,x,y),skip=()=>text('Escape to skip',500,460,0);
+  if(n===0){bw('pl',73,160);bw('loading',180,280);}
+  else if(n===1){ir(0,0,395,97,123,192);bw('loading',180,280);}
+  else if(n===2){ir(0,105,450,205,95,190);skip();}
+  else if(n===3){ir(0,300,475,360,103,90);ir(0,212,602,293,19,160);ir(454,29,609,97,243,250);bw('intro2',72,340);skip();}
+  else bw('title',0,0);}
+function introStep(){const s=G.sub,next=n=>()=>{G.sub=n;introEsc();};
+  if(s===0){sfx('v_intro');onScr(()=>introPic(0));fadeIn(50,next(1));}
+  else if(s===1){onScr(()=>introPic(0));fadeOut(30,next(2));}
+  else if(s===2){onScr(()=>introPic(1));fadeIn(50,next(3));}
+  else if(s===3){onScr(()=>introPic(1));musicPlay('title');fadeOut(30,next(4));}
+  else if(s===4){onScr(()=>introPic(2));fadeIn(50,next(5));}
+  else if(s===5){onScr(()=>introPic(2));fadeOut(30,next(6));}
+  else if(s===6){onScr(()=>introPic(3));fadeIn(50,next(7));}
+  else if(s===7){onScr(()=>introPic(3));fadeOut(60,next(8));}
+  else if(s===8){onScr(()=>introPic(4));fadeIn(20,next(9));}
+  else introEsc();}
+function introEsc(){if(keys.Escape||G.sub===9||G.escLatch){G.state='title';onScr(()=>bw('title',0,0));}}
+
+// ---------- title (state 3, 0x4203a0): title.gfx and logo.gfx on top, every one of its 140 rows moved sideways by
+// sin(row*0.01+phase)*180 (the phase runs 0..30 and back in steps of 0.01), stars; Space, Return or Escape lead to the
+// menu once released; E+N+D pressed together start the end sequence
+const TITLE={ph:0,up:false};   // 0x496718, 0x49671c
+function titleStep(){G.bossActive=false;VOLCANO_SAFE=false;CON.xmas=false;CON.bullet=false;   // 0x4203b8
+  if(keys.KeyE&&keys.KeyN&&keys.KeyD){if(!P)P=newPlayer();endStart();return;}
+  if(G.song!==1)musicPlay('title');
+  const F01=Math.fround(0.01);
+  onScr(()=>{black();bw('title',0,0);
+    for(let r=0;r<140;r++){const v=Math.sin(r*F01+TITLE.ph)*180,vi=Math.trunc(v);
+      if(v>=0)bf('logo',0,r,640-vi,r+1,vi,r+17);else bf('logo',-vi,r,640,r+1,0,r+17);}
+    if(!TITLE.up){TITLE.ph=Math.fround(TITLE.ph+F01);if(!(TITLE.ph<30))TITLE.up=true;}
+    if(TITLE.up){TITLE.ph=Math.fround(TITLE.ph-F01);if(TITLE.ph<=0)TITLE.up=false;}
+    stars(1);});
+  const go=test=>waitUp(test,()=>{G.state='menu';sfx('beam');});
+  if(keys.Space)go(()=>keys.Space);else if(enter())go(enter);else if(keys.Escape)go(()=>keys.Escape);}
+
+// ---------- menu (state 0, 0x420900): six entries of menu.gfx in a frame, the chosen one lit; Escape back to the title
+function menuStep(){onScr(()=>{rahmen(160,40,9,12);bf('menu',0,0,224,384,208,60);bf('menu',224,G.sel*64,448,G.sel*64+64,208,G.sel*64+60);});
+  if(!keys.ArrowUp&&!keys.ArrowDown)G.latch=false;
+  stepKeys(5,true);
+  if(keys.Escape){waitUp(()=>keys.Escape,()=>{G.state='title';sfx('beam');});return;}
+  if(enter()||keys.Space)waitUp(()=>enter()||keys.Space,menuPick);}
+function menuPick(){const s=G.sel;G.sel=0;
+  if(s===0){G.slots=loadSlots();G.state='newgame';}   // 0x421fd0 reads the six save files
+  else if(s===1)G.state='options';
+  else if(s===2)G.state='help';
+  else if(s===3)G.state='hiscore';
+  else if(s===4){CRED.init=false;G.state='credits';}
+  else fadeOut(5,()=>{musicStop();MUSIC.want=null;G.state='boot';G.sub=0;});}   // "Beenden": the program ends
+
+// ---------- save slots (Takatis.SG1..6, 48 bytes each, every value +0x1966): stage, skill, weapon, the three weapon
+// stages, rockets, powerlines, lives, shield time, score, cheater flag. An empty slot has stage -1.
+const SLOT0={level:-1,skill:0,weapon:0,spread:1,laser:0,bounce:0,rockets:0,lines:0,lives:0,shield:0,score:0,cheater:0};
+function loadSlots(){const a=[];for(let i=0;i<6;i++){let v=null;try{v=JSON.parse(localStorage.getItem('takatis.slot'+i));}catch(e){}
+    if(v&&v.lvl){v={level:v.level,skill:v.diff,weapon:v.weapon,spread:v.lvl[0],laser:v.lvl[1],bounce:v.lvl[2],rockets:v.rockets,lines:v.lines,lives:v.lives,shield:0,score:v.score,cheater:0};}   // earlier remake format
+    a.push(v&&typeof v.level==='number'?{...SLOT0,...v}:{...SLOT0});}
+  return a;}
+function saveSlot(i,v){try{localStorage.setItem('takatis.slot'+i,JSON.stringify(v));}catch(e){}}
+// one row of the slot table (new game 0x4227a3, save screen 0x423400)
+function slotRow(v,i,y){
+  if(v.level<0)text('-- empty Slot --',255,y,0);
+  else{text(String(Math.trunc(v.level/2)+1),153,y,0);text('-',165,y,0);text(String(v.level%2+1),177,y,0);text(String(v.lives),210,y,0);
+    for(const [x,n] of [[240,v.spread],[285,v.bounce],[330,v.laser]])for(let k=0;k<n;k++)bw('ws',x+k*6,y);
+    text(String(v.rockets),375,y,0);text(String(v.lines),420,y,0);
+    if(v.skill===0)text('Easy',455,y,2);else if(v.skill===1)text('Norm',455,y,4);else text('Hard',455,y,1);
+    if(!v.cheater)text(String(v.score),500,y,0);else text('Cheater!',500,y,0);}
+  text(String(i+1),120,y,0);}
+function slotIcons(y){bw('pu_spread',240,y);bw('pu_bounce',285,y);bw('pu_laser',330,y);bw('pu_rocket',375,y);bw('pu_line',420,y);}
+
+// ---------- new game (state 6, 0x422520): skill in the first row, the six save slots below; Escape goes to the title
+function newGameStep(){onScr(()=>{rahmen(64,62,15,10);bf('menu',224,8,448,64,210,78);
+    text('Start a new Game',250,130,1);text('Easy    Normal    Hard',218,155,0);
+    if(G.diff===0)text('Easy',218,155,2);else if(G.diff===1)text('Normal',295,155,4);else text('Hard',388,155,1);
+    text('Continue a saved Game',235,188,1);text('Slot',105,215,0);text('Stage',150,215,0);text('Lives',195,215,0);
+    slotIcons(209);text('Skill Score',455,215,0);
+    for(let i=0;i<6;i++)slotRow(G.slots[i],i,i*25+250);
+    if(G.sel===0)bf('star',48,0,72,24,182,148);else bf('star',48,0,72,24,90,G.sel*25+219);});
+  const l=keys.ArrowLeft,r=keys.ArrowRight;
+  if(G.sel===0){if(l&&G.diff>0&&!G.latch){G.diff--;G.latch=true;sfx('hit');}if(r&&G.diff<2&&!G.latch){G.diff++;G.latch=true;sfx('hit');}}
+  stepKeys(6,true);
+  if(keys.Escape){sfx('beam');G.sel=0;G.state='title';onScr(()=>bw('title',0,0));return;}
+  if(noCursor())G.latch=false;
+  if(keys.Space||enter())waitUp(()=>keys.Space||enter(),newGameGo);}
+function newGameGo(){let v=null;
+  if(G.sel>0){v=G.slots[G.sel-1];if(v.level<0)return;G.diff=v.skill;}
+  G.sel=0;P=newPlayer();G.score=0;VOLCANO_SAFE=false;G.cheater=0;G.shieldT0=0;
+  if(v){P.weapon=v.weapon;P.lvl=[v.spread,v.laser,v.bounce];P.rockets=v.rockets;P.lines=v.lines;G.lives=v.lives;G.score=v.score;G.cheater=v.cheater;G.shieldT0=v.shield;}
+  else G.lives=[5,4,3][G.diff];
+  G.go=0;G.over=null;startLevel(v?v.level:0);}
+
+// ---------- options (state 4, 0x420ef0): music and sound volume, jukebox, joystick, smoke. Opened with F2 during the
+// game (0x4966ac) only the two volumes can be reached and Escape returns to the game.
+function optionsStep(){const inGame=G.over==='options';
+  onScr(()=>{rahmen(192,92,7,8);bf('menu',224,70,424,128,210,112);bw('volume',250,180);
+    text('Joystick Options',W/2,315,0,1);text('Rauch bei Explosionen',W/2,335,0,1);text(OPTS.smoke?'ein':'aus',408,335,3);
+    const st=[[212,184],[212,216],[212,278],[222,310],[210,330]][G.sel];bf('star',48,0,72,24,st[0],st[1]);
+    bf('volumebar',0,0,OPTS.music,16,321,188);bf('volumebar',0,0,OPTS.sound,16,321,220);
+    text(inGame?' --- ':DATA.songs[G.jukebox],340,288,0);});
+  if(noCursor())G.latch=false;
+  stepKeys(4,true);
+  if(G.sel===2&&inGame)G.sel=1;
+  const l=keys.ArrowLeft,r=keys.ArrowRight;
+  if(G.sel===0){if(l&&OPTS.music>0)OPTS.music--;if(r&&OPTS.music<100)OPTS.music++;if(!G.bossActive)optsApply();}
+  if(G.sel===1){if(l&&OPTS.sound>0)OPTS.sound--;if(r&&OPTS.sound<100)OPTS.sound++;optsApply();}
+  if(G.sel===2){if(l&&G.jukebox>0&&!G.latch){G.jukebox--;G.latch=true;}if(r&&G.jukebox<10&&!G.latch){G.jukebox++;G.latch=true;}
+    if(enter()&&!G.latch){if(G.song!==SONG_ID[SONGS[G.jukebox]])musicPlay(SONGS[G.jukebox]);G.latch=true;}}
+  if(G.sel===3&&enter())G.state='joystick';
+  if(G.sel===4&&(l||r)&&!G.latch){OPTS.smoke=!OPTS.smoke;optsApply();G.latch=true;}
+  if(keys.Escape)waitUp(()=>keys.Escape,()=>{sfx('beam');optsSave();
+    if(inGame){G.over=null;return;}
+    G.state='menu';G.sel=1;if(G.song!==1)musicPlay('title');});}
+// joystick (state 11, 0x42ab60): without a joystick only the note; Escape goes back to the options
+function joystickStep(){onScr(()=>{rahmen(160,40,9,12);text('Joystick-Konfiguration fuer:',W/2,60,0,1);text('Kein Joystick angeschlossen !',W/2,80,1,1);});
+  if(keys.Escape){G.state='options';waitUp(()=>keys.Escape,()=>{});}}
+
+// ---------- help (state 5, 0x421cc0, pages 0x40e6e0): five pages, cursor up/down turns them (no sound); F1 opens it
+// during the game
+function helpPage(p){const T=DATA.helpText[p];for(let l=0;l<30;l++)text(T[l],30,l*16+80,0);
+  text('Cursor hoch/runter - blaettern der Seiten   ESC - Hauptmenue',30,450,2);
+  if(p===0){text('Ueber das Spiel',30,80,1);text('Die Story',30,224,1);}
+  else if(p===1){text('Steuerung des Gleiters',30,80,1);
+    ['Cursortasten','Space','Ctrl/Strg','Shift','Return'].forEach((s,i)=>text(s,30,112+i*16,3));text('Weitere Tasten',30,208,1);
+    ['TAB','F1','F2','Escape','1','2','3','Num0'].forEach((s,i)=>text(s,30,240+i*16,3));}
+  else if(p===2){text('Power Ups',30,80,1);text('Primaere Waffensysteme',30,192,1);text('Spread Shot',60,240,1);text('Laser',60,304,1);text('Bounce',60,368,1);
+    for(let i=0;i<3;i++)bf('powerups',i*20,0,i*20+20,20,30,i*64+240);}
+  else if(p===3){text('Zusaetzliche Waffensysteme',30,80,1);text('Rocket',60,112,1);text('Powerline',60,176,1);text('Shield',60,240,1);text('One Up',60,304,1);
+    for(let i=0;i<4;i++)bf('powerups',(i+3)*20,0,(i+3)*20+20,20,30,i*64+112);}
+  else{text('Zusaetzliche Waffensysteme',30,80,1);text('Beam',60,112,1);
+    bf('beammini',16,0,32,8,30,115);bf('beamsmall',32,0,64,16,30,130);bf('beammed',48,0,96,24,30,150);bf('beambig',64,0,128,32,30,180);}
+  text('Seite '+(p+1)+'/5',560,450,2);}
+function helpStep(){onScr(()=>{rahmen(0,0,19,14);bf('menu',224,138,384,192,200,16);helpPage(G.sel);});
+  if(!keys.ArrowUp&&!keys.ArrowDown)G.latch=false;
+  stepKeys(4,false);
+  if(keys.Escape)waitUp(()=>keys.Escape,()=>{sfx('beam');
+    if(G.over==='help'){G.over=null;return;}
+    G.sel=2;G.state='menu';onScr(()=>bw('title',0,0));});}
+
+// ---------- highscores (Highscores.hsl: 10 entries of name, score and a checksum)
+const HS0=[['Poke53280',100000],['Zerbie',90000],['Swordfighter',80000],['QBound',70000],['Manfred Trenz',60000],
+  ['Andreas Escher',50000],['Chris Huelsbeck',40000],['Alex Hertstein',30000],['Seb Kugler',20000],['ZFX-Forum',10000]];
+function hsLoad(){let a=null;try{a=JSON.parse(localStorage.getItem('takatis.hsl'));}catch(e){}
+  return Array.isArray(a)&&a.length===10?a:HS0.map(([name,score])=>({name,score}));}
+function hsSave(a){try{localStorage.setItem('takatis.hsl',JSON.stringify(a));}catch(e){}}
+// highscore list (state 8, 0x4243f0) with the flag effect: F7/F8 switch it on and off (on without Options.ini), F3/F4
+// 1 or 3 rows per line, F5/F6 frequency 0.01 or 0.005. 170 rows of the title are moved diagonally by sin(...)*180; where a
+// row lands above the one before, the back of the flag shows: backside.gfx, which also gets the particles.
+const HSFX={rowH:1,freq:Math.fround(0.01),ph:0,down:false,target:7,back:null};   // 0x4856a4, 0x4856ac, 0x496720, 0x496724, 0x4856a8
+function hiscoreStep(){if(G.song!==3)musicPlay('highscore');
+  const list=hsLoad();
+  onScr(()=>{bw('title',0,0);rahmen(160,40,10,12);bf('menu',224,182,448,246,210,56);
+    for(let i=0;i<10;i++){text((i<9?'0':'')+(i+1)+' - ',190,150+i*20,1);text(list[i].name,240,150+i*20,2);text(String(list[i].score),400,150+i*20,6);}
+    text('F7/F8 - Toggle Effect ('+(OPTS.effect?'On ':'Off')+')',W/2,410,0,1);text('Press F3-F6 for different effects !',W/2,430,0,1);});
+  if(!HSFX.back){HSFX.back=offscreen();}
+  const bg=HSFX.back.getContext('2d');bg.drawImage(S.backside.img,0,0);
+  if(keys.F3)HSFX.rowH=1;if(keys.F4)HSFX.rowH=3;if(keys.F5)HSFX.freq=Math.fround(0.01);if(keys.F6)HSFX.freq=Math.fround(0.005);
+  if(keys.F7)OPTS.effect=true;if(keys.F8)OPTS.effect=false;
+  if(OPTS.effect){particle(320,60-PY,0);particle(5,130-PY,6);particle(580,130-PY,7);partStep();
+    const keep=ctx;ctx=bg;ctx.save();ctx.beginPath();ctx.rect(0,16,640,417);ctx.clip();ctx.translate(0,PY);partDraw();ctx.restore();ctx=keep;   // in state 8 the particles go into the back of the flag
+    onScr(()=>{let prev=0;
+      for(let r=0;r<170;r++){const v=Math.sin(r*HSFX.freq+HSFX.ph)*180,vi=Math.trunc(v),y=r+vi+100,cur=r+v+100;
+        const src=cur>=prev?HSFX.back:S.title.img,sh=src===HSFX.back?170:480,l=v>=0?0:-vi,rr=v>=0?640-vi:640,x=v>=0?vi:0;
+        if(y>=0&&r+HSFX.rowH<=sh)ctx.drawImage(src,l,r,rr-l,HSFX.rowH,x,y,rr-l,HSFX.rowH);
+        prev=cur;}});
+    if(!HSFX.down){HSFX.ph=Math.fround(HSFX.ph+Math.fround(0.01));if(HSFX.target<=HSFX.ph){HSFX.target=R(10);HSFX.down=true;}}
+    if(HSFX.down){HSFX.ph=Math.fround(HSFX.ph-Math.fround(0.01));if(HSFX.ph<=0)HSFX.down=false;}}
+  if(keys.Escape){G.state='menu';sfx('beam');G.sel=0;optsSave();onScr(()=>bw('title',0,0));musicPlay('title');}}
+
+// ---------- credits (state 9, 0x424fd0): creditstile.gfx tiled and scrolled in random directions, two turrets on
+// rails with the particle system, 20 lines of the credits scrolling up on a sine path, stars
+const CRED={init:false,sx:0,sy:0,dx:0,dy:0,dt:0,line:0,off:0,t:0,ty:50,tdown:false,bg:null,wave:null};
+function credWave(){const w=new Int32Array(480);let t=0;   // 0x4949a0, made at start (0x4191cc)
+  for(let y=0;y<240;y++){w[y]=Math.trunc(Math.sin(t)*150);t=Math.fround(t+Math.fround(0.0084));}
+  for(let y=240;y<480;y++)w[y]=-w[y-240]+134;return w;}
+function creditsStep(){const C=CRED;
+  if(!C.init){PART=[];if(!C.bg){C.bg=offscreen();C.wave=credWave();}
+    const g=C.bg.getContext('2d');for(let r=0;r<6;r++)for(let c=0;c<8;c++)g.drawImage(S.creditstile.img,c*80,r*80);
+    Object.assign(C,{init:true,sx:0,sy:0,dt:0,line:0,off:0,t:0});musicPlay('credits');PB.top=0;PB.bottom=480;}
+  if(C.dt===0){C.dt=R(200);if(C.dt<50)C.dt=50;C.dx=R(6)-3;C.dy=R(6)-3;if(C.dx===0&&C.dy===0)C.dx=-2;}
+  let px;do px=R(640);while(px<60||px>400);   // a local that starts as 0xcccccccc every frame, so both pairs share one x
+  for(let k=0;k<2;k++){particle(px,R(10)-10-PY,5);particle(px,R(10)+465-PY,5);}
+  particle(11,C.ty-28-PY,6);particle(562,C.ty-28-PY,7);
+  if(R(50)===1)particle(R(640),R(480)-PY,4);
+  C.sx+=C.dx;C.sy+=C.dy;if(C.sx>=80||C.sx<=-80)C.sx=0;if(C.sy>=80||C.sy<=-80)C.sy=0;
+  C.dt--;
+  const ox=C.sx>0?C.sx:C.sx<0?C.sx+80:0,oy=C.sy>0?C.sy:C.sy<0?C.sy+80:0;
+  onScr(()=>{black();const bb=(l,t,r,b,x,y)=>{if(r>l&&b>t)ctx.drawImage(C.bg,l,t,r-l,b-t,x,y,r-l,b-t);};
+    bb(ox,oy,640,480,0,0);bb(0,oy,ox,480,640-ox,0);bb(ox,0,640,oy,0,480-oy);
+    for(let i=0;i<15;i++){bw('rail',16,i*32);bw('rail',612,i*32);}
+    bf('e10',0,0,44,41,596,C.ty);
+    partStep();ctx.save();ctx.translate(0,PY);partDraw();ctx.restore();
+    bw('creditslogo',480,380);bf('e10',88,0,132,41,0,C.ty);
+    text('      <- Supertolles unglaublich cooles Partikelsystem !!! -',50,C.ty,1);
+    if(C.ty<400&&!C.tdown)C.ty++;if(C.ty>50&&C.tdown)C.ty--;if(C.ty===400&&!C.tdown)C.tdown=true;if(C.ty===50&&C.tdown)C.tdown=false;
+    for(let i=0;i<20;i++){const y=i*25+C.off,s=DATA.credits[i+C.line]||'';text(s,320-Math.trunc(textW(s)/2)+C.wave[Math.max(0,y)]-80,y,0);}
+    if(++C.t===2){C.off--;C.t=0;}if(C.off===-25){C.off=0;if(++C.line===328)C.line=0;}
+    stars(2);});
+  if(keys.Escape)waitUp(()=>keys.Escape,()=>{G.state='menu';sfx('beam');G.sel=0;onScr(()=>bw('title',0,0));C.init=false;musicPlay('title');PB.top=16;PB.bottom=433;});}
+
+// ---------- in the game (state 1): F1 help, F2 options, Escape "Spiel beenden ?" over the frozen picture (0x4176dd)
+function overlays(){if(G.over||G.go||CON.ac)return;
+  const open=o=>{onScr(()=>ctx.drawImage(cv,0,0));sfx('beam');G.over=o;};
+  if(keys.F1){open('help');return;}
+  if(keys.F2){open('options');G.sel=0;return;}
+  if(keys.Escape&&!G.endT){open('quit');G.quitSel=0;}}
+function quitStep(){onScr(()=>{rahmen(160,100,9,4);text('Spiel beenden ?',W/2,130,0,1);if(G.quitSel===1)text('Ja',W/2,210,1,1);else text('Nein',W/2,210,2,1);});
+  if(keys.ArrowLeft||keys.ArrowDown){G.quitSel=0;sfx('hit');waitUp(()=>keys.ArrowLeft||keys.ArrowDown,()=>{});return;}
+  if(keys.ArrowRight||keys.ArrowUp){G.quitSel=1;sfx('hit');waitUp(()=>keys.ArrowRight||keys.ArrowUp,()=>{});return;}
+  if(enter()){if(G.quitSel===1){onScr(()=>bw('title',0,0));G.state='title';sfxStop('shield');sfxStop('bigexplosion');musicPlay('title');}
+    G.over=null;waitUp(enter,()=>{});}}
+
+// ---------- game over (0x416c1d, 0x4966bc 1..3): the game stands still; "Game Over" rises from y=441 at 3 px per frame,
+// then the name for a place in the highscore list, a remark, or a note for cheaters
+const GO={y:0,name:'',cur:0,delay:0,rank:10,shifted:false};   // 0x4966d4, 0x4948e0, 0x494000, 0x493c2c, 0x496714
+function gameOverStep(){
+  if(G.go===1){GO.y=441;G.go=2;GO.cur=0;GO.delay=10;GO.name=' '.repeat(15);musicPlay('highscore');sfxStop('shield');}
+  if(G.go===2){onScr(()=>{black();bw('gameover',100,GO.y);});GO.y-=3;if(GO.y<=0)G.go=3;return;}
+  const list=hsLoad();
+  onScr(()=>{black();rahmen(50,50,16,5);bf('menu',224,182,448,246,210,66);bw('gameover',100,0);stars(2);});
+  if(!G.cheater&&G.score>list[9].score){
+    let rank=10;for(let i=9;i>=0;i--)if(G.score>list[i].score)rank--;GO.rank=rank;
+    if(rank<9&&!GO.shifted){for(let i=9;i>rank;i--)list[i]={...list[i-1]};GO.shifted=true;G.hsList=list;}   // never cleared again (0x496714)
+    GO.delay--;
+    for(let c=65;c<91;c++)if(keys['Key'+String.fromCharCode(c)]&&GO.delay<=0){
+      const ch=keys.ShiftLeft||keys.ShiftRight?String.fromCharCode(c):String.fromCharCode(c+32);
+      GO.name=GO.name.slice(0,GO.cur)+ch+GO.name.slice(GO.cur+1);GO.delay=10;if(GO.cur<14)GO.cur++;}
+    const put=(i,ch)=>{GO.name=GO.name.slice(0,i)+ch+GO.name.slice(i+1);};
+    if(keys.Backspace&&GO.delay<=0){
+      if(GO.cur===14){if(GO.name[14]===' '){put(13,' ');GO.cur--;}put(14,' ');GO.delay=10;}
+      else{if(GO.cur!==0)GO.cur--;put(GO.cur,' ');GO.delay=10;}}
+    if(keys.Space&&GO.delay<=0){put(GO.cur,' ');GO.delay=10;if(GO.cur<14)GO.cur++;}
+    onScr(()=>{text('Du hast Platz   erreicht !!!',210,140,4);text(String(rank+1),323,140,1);text('Enter your Name: ',185,180,2);text(GO.name,325,180,1);});
+    if(enter())waitUp(enter,()=>{const l=G.hsList||list;l[GO.rank]={name:GO.name,score:G.score};hsSave(l);G.hsList=null;
+      G.state='hiscore';onScr(()=>bw('title',0,0));G.go=0;G.cheater=0;G.score=0;});
     return;}
-  if(G.state==='start'){panel(60,60,520,340);
-    drawCenter('START GAME',78,0);
-    drawCenter('START A NEW GAME',110,1);
-    const dn=['EASY','NORMAL','HARD'],dc=[2,4,1];   // green / yellow / red as in the original
-    for(let i=0;i<3;i++)text(dn[i],150+i*130,134,dc[i],1);
-    if(G.startRow===0){const cx=150+G.diff*130,hw=dn[G.diff].length*5;   // markers bracket the chosen skill
-      text('>',cx-hw-12,134,dc[G.diff],1);text('<',cx+hw+12,134,dc[G.diff],1);}
-    drawCenter('CONTINUE A SAVED GAME',166,1);
-    text('SLOT  STAGE LIVES  WEAPONS   SKILL  SCORE',300,190,3,1);
-    for(let i=0;i<SLOTS;i++){const sv=readSlot(i);const y=212+i*28;const sel=G.startRow===i+1;
-      if(sel){ctx.fillStyle='rgba(160,120,40,.25)';ctx.fillRect(70,y-3,500,24);}
-      text(String(i+1),90,y,sel?2:3,1);
-      if(!sv)text('-- EMPTY SLOT --',300,y,sel?2:3,1);
-      else{text(LEVELS[sv.level].stage,160,y,sel?2:3,1);text(String(sv.lives),225,y,sel?2:3,1);
-        for(let w=0;w<3;w++)text(String(sv.lvl[w]),275+w*26,y,sel?2:3,1);
-        text(dn[sv.diff],420,y,[2,4,1][sv.diff],1);text(String(sv.score),520,y,sel?2:3,1);}}
-    return;}
-  if(G.state==='options'){panel(120,120,400,220);drawCenter('OPTIONS',140,0);
-    const rows=[['MUSIK',Math.round(MUSIC.vol*10)],['SOUND',Math.round((G.sfxVol===undefined?1:G.sfxVol)*10)],['SKILL',['EASY','NORMAL','HARD'][G.diff]]];
-    rows.forEach((r,i)=>{const y=190+i*40;text(r[0],200,y,G.optSel===i?0:3,1);text(String(r[1]),380,y,i===2?[2,4,1][G.diff]:(G.optSel===i?0:3),1);});
-    drawCenter('ESC  ZURUECK',310,3);return;}
-  if(G.state==='help'){panel(60,60,520,340);const pg=HELP[G.page];
-    drawCenter(pg[0],86,0);
-    for(let i=1;i<pg.length;i++)text(pg[i],90,124+(i-1)*28,i===1?2:3);
-    drawCenter('SEITE '+(G.page+1)+'/'+HELP.length+'   CURSOR BLAETTERN   ESC',368,3);return;}
-  if(G.state==='hiscore'){panel(140,100,360,260);drawCenter('HIGHSCORE',124,0);
-    drawCenter(String(G.hiscore),180,2);drawCenter('LETZTES SPIEL',230,3);drawCenter(String(G.score),260,3);
-    drawCenter('ESC  ZURUECK',330,3);return;}
-  if(G.state==='credits'){ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(0,0,W,H);
-    CREDITS.forEach((l,i)=>{const y=G.creditY+i*20;if(y>-20&&y<H)text(l,W/2,y,l===l.toUpperCase()&&i<2?0:3,1);});return;}}
-function render(){ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);
-  if(G.state==='title'){ctx.drawImage(S.title.img,0,0);ctx.drawImage(S.logo.img,0,10);if(Math.floor(G.frame/30)%2)drawCenter('PRESS ESC FOR MENU',320,2);drawCenter('HIGHSCORE '+G.hiscore,352,3);return;}
-  if(G.state==='menu'||G.state==='start'||G.state==='options'||G.state==='help'||G.state==='hiscore'||G.state==='credits'){
-    ctx.drawImage(S.title.img,0,0);drawMenus();return;}
-  drawPlayfield();drawHUD();
-  if(G.state==='ready'){frame('getready',0,(W-329)/2,140);drawCenter('STAGE '+level().stage,220,0);drawCenter(level().hint,250,2);}
-  else if(G.state==='gameover'){frame('gameover',0,(W-429)/2,180);}
-  else if(G.state==='clear'){drawCenter('STAGE CLEAR',200,0);drawCenter('BONUS 1000  +1 LIFE',235,2);if(G.bossDone)drawCenter('BOSS DESTROYED  +5000',270,3);}
-  else if(G.state==='pause'){ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(0,PY,W,PH);drawCenter('PAUSE',220,0);}
-  else if(G.state==='quit'){const bx=150,by=190,bw=340,bh=110;
-    ctx.fillStyle='rgba(20,10,6,.92)';ctx.fillRect(bx,by,bw,bh);ctx.strokeStyle='#8a6a3a';ctx.lineWidth=2;ctx.strokeRect(bx+.5,by+.5,bw-1,bh-1);
-    drawCenter('SPIEL BEENDEN ?',by+22,0);
-    text('JA',bx+95,by+68,G.quitSel?1:0,1);text('NEIN',bx+245,by+68,G.quitSel?0:2,1);}
-  else if(G.state==='end'){ctx.drawImage(S.endscreen.img,0,0);drawCenter('YOU FINISHED TAKATIS',400,0);drawCenter('SCORE '+G.score,430,2);}}
+  onScr(()=>{if(!G.cheater)text('Tja, war wohl nix mit Highscore :)',190,150,5);
+    else{text('Denkst Du wirklich, dass Du als',200,150,1);text('Cheater ne Highscore verdient hast?',185,170,1);}});
+  if(enter()){G.state='hiscore';onScr(()=>bw('title',0,0));G.go=0;G.cheater=0;G.score=0;}}
+
+// ---------- render
+function render(){
+  const gam=()=>{if(G.gamma<100){ctx.fillStyle='rgba(0,0,0,'+(1-G.gamma/100)+')';ctx.fillRect(0,0,W,H);}};
+  if(G.blk){ctx.drawImage(G.blk.img,0,0);gam();return;}
+  if(G.state==='boot'){ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);text('Klicken oder Taste druecken',W/2,232,0,1);return;}   // the browser needs a gesture for sound
+  if(onShell()){ctx.drawImage(SCR,0,0);gam();return;}
+  if(G.state==='end'){drawEnd();return;}
+  ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);
+  if(G.endPhase===2&&G.endT>=50&&WAVE.prev)ctx.drawImage(WAVE.prev,0,PY,W,PH,0,PY,W,PH);else drawPlayfield();drawHUD();
+  if(G.state==='save'){drawSave();return;}
+  if(G.paused){ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(0,PY,W,PH);text('PAUSE',W/2,220,0,1);}   // remake: P
+  gam();}
+// stage intro (0x416301): the "online" voice, black playfield with the HUD, "Get ready" and the three lines of the
+// stage, faded in with 100 steps of 6 ms, then 2 s wait
+function drawReady(){black();drawHUD();frame('getready',0,160,180);for(const [y,s,c] of DATA.intro[G.level])text(s,W/2,y,c,1);}
+
+// ---------- console (0x401500..0x4029af, input 0x425c50, drawing 0x4016e0), only during the game and not after game
+// over. Tab opens it (0x401b60) or closes it (0x401c20), each at most every 500 ms; opening clears 0x4966ac, closing
+// sets it, so while Tab is held the second frame leaves the game standing still under the open console and the
+// closing frame lets it run again. Nine lines of history and the input line "> ..." in white GDI text (system font)
+// at x=25 over Console.gfx on the frozen screen. a-z and space are typed at most one every 150 ms (each with
+// Klippikloppi), backspace every 150 ms, Return every 500 ms. The commands are compared exactly; most answers replace
+// the input line, "help" and unknown commands first move it up (0x401e80).
+const CON={open:false,ac:false,lines:Array(9).fill(''),input:'',tag:0x78,t:-1e9,base:null,ship:'player',xmas:false,bullet:false,clock:0};
+function conPush(){CON.lines.shift();CON.lines.push(CON.input);CON.input='';}
+function conSay(s){CON.input=s;conPush();}
+function conCheat(){sfx('v_cheat');G.cheater=1;}
+function conCmd(c){
+  switch(c){
+    case 'quit':conSay('ShutDown !');fadeOut(5,()=>{musicStop();MUSIC.want=null;CON.open=CON.ac=false;G.state='boot';G.sub=0;});break;   // 0x4966a8: the program ends
+    case 'the nexus':conSay('Glaubst Du wirklich, dass der Cheat aus der');conSay('Demoversion hier noch funktioniert ?');break;
+    case 'help':conPush();for(const s of ['Befehle:','-------------','quit           = Spiel beenden','infomode on    = Leveldaten anzeigen ein','infomode off   = Leveldaten anzeigen aus'])conSay(s);break;
+    case 'infomode on':conSay('Info-Modus ein');G.info=true;break;
+    case 'infomode off':conSay('Info-Modus aus');G.info=false;break;
+    case 'the barrens':conCheat();conSay('Schild aktiv !');P.shieldOn=true;break;
+    case 'silkworm':conCheat();conSay('Raketen hinzugefügt !');P.rockets+=5;break;
+    case 'rick dangerous':conCheat();conSay('Powerlines hinzugefügt');P.lines+=5;break;
+    case 'master of puppets':conCheat();conSay('99 Leben für die Loser');G.lives=99;break;
+    case 'ping pong':conCheat();conSay('Bounce-State Maximum');P.lvl[2]=4;break;
+    case 'we will rock you':conCheat();conSay('Laser-State Maximum');P.lvl[1]=4;break;
+    case 'feuerwuxe':conCheat();conSay('Spread-State Maximum');P.lvl[0]=4;break;
+    case 'pfundi':conSay('Selbstzerstörungs-Sequenz eingeleitet !!!');killPlayer();G.lives=1;break;
+    case 'dosenhalter':break;   // mciSendString("set cdaudio door open"), no answer
+    case 'katakis':conSay('Wer das Original nicht kennt, hat was verpasst !');CON.ship='player2';break;
+    case 'wanderwuxe':conSay('Normales Raumschiff gewählt');CON.ship='player';break;
+    case 'crazy volcanos':conCheat();conSay('Feigling !');VOLCANO_SAFE=true;break;
+    case 'merry xmas':conCheat();conSay('...viele Extras !');CON.xmas=true;break;
+    case 'zerbiebomb':conSay('...das haut rein !!!');conCheat();   // a spread shot with 11000 damage out of every enemy
+      for(const e of G.enemies)if(!e.dead)shotNew(e.x,e.y,8,0,0,0,11000);break;
+    case 'scott me up beamy':conCheat();conSay('Das Ende ist nahe...');G.scroll=level().wb*32-1280;break;
+    case 'bullettime mode on':conSay('Bullettime-Mode ein');CON.bullet=true;break;   // 0x485698: at least 70 ms per frame
+    case 'bullettime mode off':conSay('Bullettime-Mode aus');CON.bullet=false;break;
+    default:conPush();conSay('Befehl existiert nicht !');}}
+function conStep(){const now=CON.clock;CON.clock+=CON.bullet?70:1000/FPS;
+  if(keys.Tab){const ok=CON.tag!==45||CON.t<=now-500;
+    if(!CON.open){if(ok){CON.base=snapScreen();CON.open=true;CON.input='';CON.tag=45;CON.t=now;}CON.ac=false;}
+    else{if(ok){CON.open=false;CON.tag=45;CON.t=now;}CON.ac=true;}}
+  if(!CON.open)return;
+  for(let k=0;k<27;k++){const code=k<26?'Key'+String.fromCharCode(65+k):'Space';
+    if(keys[code]&&CON.t<=now-150){if(CON.input.length<50){CON.input+=k<26?String.fromCharCode(97+k):' ';sfx('klippikloppi');}CON.tag=k<26?97+k:32;CON.t=now;}}
+  if(keys.Backspace&&!(CON.tag===42&&CON.t>now-150)){if(CON.input.length){CON.input=CON.input.slice(0,-1);sfx('klippikloppi');}CON.tag=42;CON.t=now;}
+  if(enter()&&!(CON.tag===43&&CON.t>now-500)){
+    if(CON.input===''){sfx('klippikloppi');conPush();}else{conCmd(CON.input);CON.input='';}
+    CON.tag=43;CON.t=now;}
+  onScr(conDraw);}
+function conDraw(){ctx.drawImage(CON.base,0,0);bw('console',0,0);
+  ctx.save();ctx.font='bold 13px "Microsoft Sans Serif",Tahoma,Arial,sans-serif';ctx.textBaseline='top';ctx.fillStyle='#fff';
+  CON.lines.forEach((s,i)=>ctx.fillText(s,25,5+i*20));ctx.fillText('> '+CON.input,25,185);ctx.restore();}
 
 // ---------- main loop
-function step(){G.frame++;musicTick();if(G.state==='title'&&MUSIC.want!=='title')musicPlay('title');
-  if(pressed.KeyM){muted=!muted;}if(pressed.Minus||pressed.NumpadSubtract){MUSIC.vol=Math.max(0,MUSIC.vol-0.1);}if(pressed.Equal||pressed.NumpadAdd){MUSIC.vol=Math.min(1,MUSIC.vol+0.1);}
-  if(pressed.F1)G.info=!G.info;
+function step(){G.frame++;musicTick();
+  // remake helpers: M sound on/off, -/+ music volume, F9 info mode
+  if(CON.open)pressed={};   // the console takes the letters
+  if(pressed.KeyM){muted=!muted;if(muted)for(const k in VOICE)sfxStop(k);}
+  if(pressed.Minus||pressed.NumpadSubtract){OPTS.music=Math.max(0,OPTS.music-10);optsApply();optsSave();}
+  if(pressed.Equal||pressed.NumpadAdd){OPTS.music=Math.min(100,OPTS.music+10);optsApply();optsSave();}
+  if(pressed.F9)G.info=!G.info;
+  if(G.blk){blkStep();pressed={};return;}
+  if(G.wait){if(!G.wait.test()){const f=G.wait.fn;G.wait=null;f();}pressed={};return;}
   switch(G.state){
-    case 'menu':{
-      if(pressed.ArrowUp)G.menuSel=(G.menuSel+MENU_ITEMS.length-1)%MENU_ITEMS.length;
-      if(pressed.ArrowDown)G.menuSel=(G.menuSel+1)%MENU_ITEMS.length;
-      if(pressed.Escape)G.state='title';
-      if(pressed.Enter||pressed.Space){const it=MENU_ITEMS[G.menuSel];
-        if(it==='start'){G.state='start';G.startRow=0;G.slotSel=0;}
-        else if(it==='options'){G.state='options';G.optSel=0;}
-        else if(it==='help'){G.state='help';G.page=0;}
-        else if(it==='highscore')G.state='hiscore';
-        else if(it==='credits'){G.state='credits';G.creditY=PH;}
-        else if(it==='quit')G.state='title';}
-      break;}
-    case 'start':{
-      if(pressed.ArrowUp)G.startRow=Math.max(0,G.startRow-1);
-      if(pressed.ArrowDown)G.startRow=Math.min(SLOTS,G.startRow+1);
-      if(G.startRow===0){if(pressed.ArrowLeft)G.diff=Math.max(0,G.diff-1);if(pressed.ArrowRight)G.diff=Math.min(2,G.diff+1);}
-      if(pressed.Escape)G.state='menu';
-      if(pressed.Enter||pressed.Space){
-        if(G.startRow===0){G.lives=5;G.score=0;P=null;G.slot=null;startLevel(0);}
-        else{const sv=readSlot(G.startRow-1);
-          if(sv){G.diff=sv.diff;G.lives=sv.lives;G.score=sv.score;G.slot=G.startRow-1;P=newPlayer();P.lvl=sv.lvl.slice();P.weapon=sv.weapon;P.rockets=sv.rockets;P.lines=sv.lines;startLevel(sv.level);}
-          else{G.lives=5;G.score=0;P=null;G.slot=G.startRow-1;startLevel(0);}}}
-      break;}
-    case 'options':{
-      if(pressed.ArrowUp)G.optSel=(G.optSel+2)%3;if(pressed.ArrowDown)G.optSel=(G.optSel+1)%3;
-      if(pressed.ArrowLeft||pressed.ArrowRight){const d=pressed.ArrowRight?1:-1;
-        if(G.optSel===0)MUSIC.vol=Math.max(0,Math.min(1,MUSIC.vol+d*0.1));
-        else if(G.optSel===1)G.sfxVol=Math.max(0,Math.min(1,(G.sfxVol===undefined?1:G.sfxVol)+d*0.1));
-        else G.diff=Math.max(0,Math.min(2,G.diff+d));}
-      if(pressed.Escape||pressed.Enter)G.state='menu';
-      break;}
-    case 'help':{
-      if(pressed.ArrowDown||pressed.ArrowRight)G.page=Math.min(HELP.length-1,G.page+1);
-      if(pressed.ArrowUp||pressed.ArrowLeft)G.page=Math.max(0,G.page-1);
-      if(pressed.Escape||pressed.Enter)G.state='menu';
-      break;}
-    case 'hiscore':{if(pressed.Escape||pressed.Enter||pressed.Space)G.state='menu';break;}
-    case 'credits':{G.creditY-=0.6;if(pressed.Escape||pressed.Enter||G.creditY<-CREDITS.length*18-40)G.state='menu';break;}
-    case 'title':   // the title screen only waits; a game is always started from the menu
-      if(pressed.Escape||pressed.Enter||pressed.Space){G.state='menu';G.menuSel=0;}break;
-    case 'ready':G.timer--;if(G.timer===140)sfx('v_online',0.9);if(G.timer<=0||pressed.Space)G.state='play';break;
-    case 'play':if(pressed.Escape){G.state='quit';G.quitSel=0;break;}
-    if(pressed.KeyP){G.state='pause';break;}if(pressed.F2){if(G.boss){G.boss.hp=0;G.boss.dying=150;}else G.stageClear=true;}updatePlay();break;
-    case 'pause':if(pressed.KeyP||pressed.Escape)G.state='play';break;
-    case 'quit':
-      if(pressed.ArrowLeft||pressed.ArrowRight||pressed.ArrowUp||pressed.ArrowDown)G.quitSel=G.quitSel?0:1;
-      if(pressed.Escape)G.state='play';
-      if(pressed.Enter||pressed.Space){if(G.quitSel){G.hiscore=Math.max(G.hiscore,G.score);try{localStorage.setItem('takatis.hiscore',G.hiscore);}catch(e){}G.state='menu';G.menuSel=0;musicPlay('title');}else G.state='play';}
-      break;
-    case 'clear':G.timer--;G.fx=G.fx.filter(f=>true);for(const f of G.fx){f.f+=1/f.rate;if(f.f>=f.n)f.dead=true;}G.fx=G.fx.filter(f=>!f.dead);
-      if(G.timer<=0){if(G.level+1<LEVELS.length){if(G.level%2===1&&G.slot!==null&&G.slot!==undefined)writeSlot(G.slot,{level:G.level+1,score:G.score,lives:G.lives,lvl:P.lvl,weapon:P.weapon,rockets:P.rockets,lines:P.lines,diff:G.diff});startLevel(G.level+1);}else{G.state='end';G.timer=600;musicPlay('end');}}break;
-    case 'gameover':G.timer--;if(G.timer<=0||pressed.Enter){G.hiscore=Math.max(G.hiscore,G.score);try{localStorage.setItem('takatis.hiscore',G.hiscore);}catch(e){}G.state='menu';G.menuSel=0;musicPlay('title');}break;
-    case 'end':G.timer--;if(G.timer<=0||pressed.Enter){G.hiscore=Math.max(G.hiscore,G.score);try{localStorage.setItem('takatis.hiscore',G.hiscore);}catch(e){}G.state='menu';G.menuSel=0;musicPlay('title');}break;
+    case 'boot':{const any=()=>Object.values(keys).some(v=>v);
+      if(any()||G.clicked){G.clicked=false;waitUp(any,()=>{G.state='intro';G.sub=0;});}break;}
+    case 'intro':introStep();break;
+    case 'title':titleStep();break;
+    case 'menu':menuStep();break;
+    case 'newgame':newGameStep();break;
+    case 'options':optionsStep();break;
+    case 'joystick':joystickStep();break;
+    case 'help':helpStep();break;
+    case 'hiscore':hiscoreStep();break;
+    case 'credits':creditsStep();break;
+    case 'ready':
+      if(G.timer===0){sfx('v_online');onScr(drawReady);G.timer=1;fadeIn(6,null);break;}
+      if(++G.timer>150)G.state='play';break;   // wait 2 s (0x425bd0)
+    case 'save':saveStep();break;
+    case 'play':
+      if(G.go){gameOverStep();break;}
+      if(G.over){if(G.over==='help')helpStep();else if(G.over==='options')optionsStep();else quitStep();break;}
+      conStep();if(CON.ac)break;   // console (0x425c50): while it is open the game stands still
+      if(G.paused){if(pressed.KeyP)G.paused=false;break;}   // remake: P pauses
+      if(pressed.KeyP){G.paused=true;break;}
+      if(pressed.F4){if(G.bossActive)V.w32(0x494050,0);else if(G.scroll<=G.maxScroll)G.scroll=G.maxScroll+1;}   // remake: skip the stage
+      updatePlay();overlays();break;
+    case 'end':endStep();break;
   }
   pressed={};}
 let acc=0,last=performance.now();
-function loop(now){try{const dt=Math.min(100,now-last);last=now;acc+=dt;let n=0;while(acc>=1000/FPS&&n<4){step();acc-=1000/FPS;n++;}render();}catch(e){window.__lastErr=String(e)+' | '+(e.stack||'');console.error(e);}requestAnimationFrame(loop);}
-loadAssets().then(()=>{msg.hidden=true;cv.focus();try{G.hiscore=+localStorage.getItem('takatis.hiscore')||0;}catch(e){}
-  setInterval(()=>{try{localStorage.setItem('takatis.hiscore',G.hiscore);}catch(e){}},5000);requestAnimationFrame(loop);});
+function loop(now){try{const dt=Math.min(100,now-last);last=now;acc+=dt;let n=0;const fm=CON.bullet?70:1000/FPS;while(acc>=fm&&n<4){step();acc-=fm;n++;}render();}catch(e){window.__lastErr=String(e)+' | '+(e.stack||'');console.error(e);}requestAnimationFrame(loop);}
+loadAssets().then(()=>{msg.hidden=true;cv.focus();optsApply();requestAnimationFrame(loop);});
 })();
 </script>
