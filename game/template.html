@@ -896,7 +896,8 @@ const onShell=()=>SHELL.has(G.state)||G.state==='ready'||(G.state==='play'&&(G.o
 function snapScreen(){const c=offscreen();c.getContext('2d').drawImage(onShell()?SCR:cv,0,0);return c;}
 function fadeIn(ms,done){G.blk={d:1,i:0,ms,t:0,done,img:snapScreen()};blkCheck();}
 function fadeOut(ms,done){G.blk={d:-1,i:100,ms,t:0,done,img:snapScreen()};blkCheck();}
-function blkCheck(){if(G.escLatch&&G.sub>3)blkEnd();else G.gamma=G.blk.i;}
+// remake: the original only skips from 0x494898 > 3 on (the first intro picture), here from the start
+function blkCheck(){if(G.escLatch)blkEnd();else G.gamma=G.blk.i;}
 function blkEnd(){const b=G.blk;G.blk=null;G.gamma=100;if(b.d<0)onScr(black);if(b.done)b.done();}
 function blkStep(){const b=G.blk;b.t+=1000/FPS;
   while(G.blk===b&&b.t>=b.ms){b.t-=b.ms;if(keys.Escape)G.escLatch=true;b.i+=b.d;if(b.i>=100||b.i<=0)blkEnd();else blkCheck();}}
@@ -946,7 +947,7 @@ function introStep(){const s=G.sub,next=n=>()=>{G.sub=n;introEsc();};
   else if(s===7){onScr(()=>introPic(3));fadeOut(60,next(8));}
   else if(s===8){onScr(()=>introPic(4));fadeIn(20,next(9));}
   else introEsc();}
-function introEsc(){if((keys.Escape&&G.sub>3)||G.sub===9||(G.sub>3&&G.escLatch)){G.state='title';onScr(()=>bw('title',0,0));}}
+function introEsc(){if(keys.Escape||G.sub===9||G.escLatch){G.state='title';onScr(()=>bw('title',0,0));}}
 
 // ---------- title (state 3, 0x4203a0): title.gfx and logo.gfx on top, every one of its 140 rows moved sideways by
 // sin(row*0.01+phase)*180 (the phase runs 0..30 and back in steps of 0.01), stars; Space, Return or Escape lead to the

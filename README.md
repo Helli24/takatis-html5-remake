@@ -213,7 +213,8 @@ Startbild des Remakes zurück, der Flaggeneffekt der Highscores vergleicht in Ze
 Speicherresten, die Prüfsummen der Dateien entfallen. Noch offen: die Konsole (Tab) mit
 ihren Befehlen.
 
-Hilfen des Remakes, die es im Original nicht gibt: P Pause, F4 Stage überspringen bzw.
+Hilfen des Remakes, die es im Original nicht gibt: Escape überspringt das Intro schon ab dem
+Poke53280-Logo (im Original erst ab dem ersten Intro-Bild), P Pause, F4 Stage überspringen bzw.
 Boss zerstören, F9 Infomodus, M Ton aus, −/+ Musiklautstärke.
 
 ## Der Patch für das Original
