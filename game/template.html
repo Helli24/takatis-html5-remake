@@ -201,11 +201,11 @@ function newPlayer(){return {x:10,y:184,w:49,h:34,energy:3,dead:0,bank:0,cool:0,
 const START_LIVES=[5,4,3];   // per difficulty (0x4230a7)
 
 function level(){return LEVELS[G.level];}
-function startLevel(i,fromScroll=0){G.level=i;const l=level();G.scroll=fromScroll;G.speed=l.speed;G.maxScroll=l.wb*32-640;
+// a respawn keeps the scroll speed of the moment of death (0x4267b6); objects only become active while their x passes
+// the window 635..640 px ahead of the scroll position (0x40a2ca), so everything already on screen at a restart stays away
+function startLevel(i,fromScroll=0,respawn=false){G.level=i;const l=level();G.scroll=fromScroll;if(!respawn)G.speed=l.speed;G.maxScroll=l.wb*32-640;
   G.enemies=[];G.shots=[];G.eshots=[];G.fx=[];G.items=[];G.lines=[];G.next=0;G.boss=null;G.bossDone=false;
-  while(G.next<l.objects.length&&l.objects[G.next][1]<G.scroll)G.next++;
-  // apply speed triggers already passed
-  for(let k=0;k<G.next;k++){const o=l.objects[k];if(o[0]>=34&&o[0]<=38)G.speed=o[0]-33;}
+  while(G.next<l.objects.length&&l.objects[G.next][1]<G.scroll+W-5)G.next++;
   const keep=P;P=newPlayer();if(keep){P.weapon=keep.weapon;P.lvl=keep.lvl;P.rockets=keep.rockets;P.lines=keep.lines;}
   G.state='ready';G.timer=150;G.stageClear=false;musicPlay('level'+l.theme);}
 
@@ -218,7 +218,7 @@ function hit(a,b){return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;}
 
 // ---------- spawning
 // level object y is in screen coordinates, i.e. it includes the 16 px HUD bar
-function spawn(o){const [type,x,y0,param,flag]=o;const y=y0-PY;if(flag>G.diff)return;const sx=x-G.scroll;
+function spawn(o){const [type,x,y0,param,flag]=o;const y=y0-PY;if(flag>G.diff)return;const sx=W;   // activated objects start at x=640
   // speed triggers 34..38 = scroll speed 1..5 (0x40b326); they act the moment they reach the right screen edge,
   // with sound and sparks at the ship only if the speed actually changes. The level end is the scroll position.
   if(type>=34&&type<=38){if(G.speed!==type-33){G.speed=type-33;sfx('trigger',0.6);sparks(P.x-30,P.y-20);}return;}
@@ -337,7 +337,7 @@ function updatePlayer(){
     if(P.dead>100)for(let i=0;i<5;i++)if(Math.random()*10<1){G.fx.push({spr:'explosion',x:P.x+Math.floor(Math.random()*21)-10-6,y:P.y+Math.floor(Math.random()*51)-25-8,f:0,rate:4,n:8});if(P.dead%8===0)sfx('explosion',0.4);}
     if(P.dead===0){G.lives--;if(P.rockets>0)P.rockets--;if(P.lines>0)P.lines--;
       if(G.lives<=0){G.state='gameover';G.timer=240;sfx('v_bigone',0.8);musicPlay('highscore');}
-      else{const half=level().wb*16;startLevel(G.level,G.scroll>half?half:0);}}
+      else{const half=level().wb*16;startLevel(G.level,G.scroll>half?half:0,true);}}
     return;}
   const u=K.up(),d=K.down(),l=K.left(),r=K.right();
   if(!u&&!d)P.bank-=Math.sign(P.bank);
@@ -483,10 +483,11 @@ function drawPlayfield(){const l=level(),th=T[l.theme];
   drawLayer(l.A,l.wa,th.tsb,Math.floor(G.scroll/2));
   // behind-player things
   for(const it of G.items)frame(ITEM_SPR[it.kind],0,it.x,it.y);
-  for(const e of G.enemies){if(e.trigger){if(G.info){ctx.fillStyle=e.end?'#ff5c5c':'#5ad0f0';ctx.fillRect(e.x,e.y,16,16);}continue;}
-    if(!e.spr)continue;frame(e.spr,e.f,e.x+(e.type===17?G.shake:0),e.y+(e.off||0),e.dir<0);
-}
+  // draw order of 0x42bdb0: enemies behind the foreground tiles, presses in front of them
+  const drawEnemy=e=>{if(e.spr)frame(e.spr,e.f,e.x+(e.type===17?G.shake:0),e.y+(e.off||0),e.dir<0);};
+  for(const e of G.enemies)if(e.type!==26&&e.type!==27)drawEnemy(e);
   drawLayer(l.B,l.wb,th.tsa,Math.floor(G.scroll));
+  for(const e of G.enemies)if(e.type===26||e.type===27)drawEnemy(e);
   for(const L of G.lines)for(const sg of L.segs)if(sg.alive)frame('powerline',Math.floor(L.t/3),L.x,sg.y);
   for(const s of G.shots){if(s.kind==='rocket'){frame('rocket',s.fr,s.x,s.y);}else frame(s.kind,s.fixed!==undefined?s.fixed:Math.floor(s.f/(s.anim?4:2)),s.x,s.y);}
   if(G.boss)bossDraw(G.boss);
