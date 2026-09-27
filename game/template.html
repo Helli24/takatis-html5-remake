@@ -914,10 +914,11 @@ const SONGS=['title','credits','highscore','level1','level2','level3','level4','
 const SONG_ID={title:1,credits:2,highscore:3,level1:4,level2:5,level3:6,level4:7,level5:8,level6:9,boss:10,end:11,clear:12};
 
 // ---------- options (Options.ini): music and sound volume 0..100, the highscore effect, smoke behind debris
-const OPTS={music:100,sound:100,effect:true,smoke:false};
-try{Object.assign(OPTS,JSON.parse(localStorage.getItem('takatis.options'))||{});}catch(e){}
+// remake: both volumes start at 20 instead of 100 (key v2, so earlier stored values do not count)
+const OPTS={music:20,sound:20,effect:true,smoke:false};
+try{Object.assign(OPTS,JSON.parse(localStorage.getItem('takatis.options2'))||{});}catch(e){}
 function optsApply(){OPT.smoke=OPTS.smoke;G.sfxVol=OPTS.sound/100;MUSIC.vol=0.55*OPTS.music/100;}
-function optsSave(){try{localStorage.setItem('takatis.options',JSON.stringify(OPTS));}catch(e){}}
+function optsSave(){try{localStorage.setItem('takatis.options2',JSON.stringify(OPTS));}catch(e){}}
 
 // ---------- stars (0x424100): with a chance of 1 in 10 a star appears in the first free of 200 slots at a random place
 // (mode 1: x 20..599, y 40..134; mode 2: x 20..639, y 40..499) and shows the 8 frames of star.gfx, 5 frames each
