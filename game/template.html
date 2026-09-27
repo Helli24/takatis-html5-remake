@@ -130,7 +130,10 @@ const VMCALL={
   0x4010ff:()=>bossPart(3),0x401037:()=>bossPart(2),0x401032:()=>bossPart(1),0x401186:()=>bossPart(4),
   0x4010f0:esp=>bossShipHit(V.r32(esp+16),V.r32(esp+20))?1:0,                       // pixel test ship against the boss image
   0x4011bd:esp=>{BOSS.fadeMs=V.r32(esp);},                                           // fade to black after the last boss
-  0x4010c3:(esp,ecx)=>{const s=BOSS.seg[((ecx-HND.enemies)/REC)|0];if(s){stepPath(s);animStep(s);}}};   // extra update of a boss-5 segment
+  // below 600 energy (not on easy) boss 5 runs the enemy routine 0x40a260 once more for every tail segment: it moves,
+  // is blitted a second time (after the foreground) and can ram the ship again
+  0x4010c3:(esp,ecx)=>{const s=BOSS.seg[((ecx-HND.enemies)/REC)|0];if(s&&!s.dead){const L=[];enemyStep(s,L);for(const b of L)BOSS.blits.push({eb:b});
+    V.w32(ecx,s.x);V.w32(ecx+4,s.y+PY);}}};
 // the four render routines: mesh slot, translation and rotation variables, rotation order (0x409be0..0x40a010)
 const SLOT={1:{t:[0x492314,0x492318,0x492310],r:[0x491c6c,0x491c70,0x491c68],xzy:true},2:{t:[0x4920dc,0x4920e0,0x4920d8],r:[0x491c7c,0x491c74,0x491c78]},
   3:{t:[0x492170,0x492168,0x49216c],r:[0x492324,0x49231c,0x492320]},4:{t:[0x49415c,0x494070,0x494090],r:[0x49489c,0x4948a4,0x4948ac]}};
@@ -168,7 +171,9 @@ function bossSegments(){for(let k=1;k<=10;k++){const a=HND.enemies+k*REC;if(V.r3
       an:{col:0,row:0,cnt:1,dir:0,tick:0},spr:'dragontail'};
       const pa=V.r32(a+0x58),p=[];for(let q=0;q<1000;q++){const dx=V.r32(pa+q*12),dy=V.r32(pa+q*12+4),n=V.r32(pa+q*12+8);p.push([dx,dy,n]);if(n<0)break;}
       s.path=p;s.seg=V.r32(a+0x2c)/3|0;s.dx=p[s.seg][0];s.dy=p[s.seg][1];s.cnt=V.r32(a+0x30);}
-    if(on&&(s.dead||!G.enemies.includes(s))){s.dead=false;G.enemies.push(s);}
+    // the segments take the records 1..10 of the enemy array, whatever level object was there is gone
+    if(on&&(s.dead||!G.enemies.includes(s))){s.dead=false;s.idx=k;for(const o of G.enemies)if(o!==s&&o.idx===k)o.dead=true;
+      if(G.objSt&&k<G.objSt.length)G.objSt[k]=1;if(!G.enemies.includes(s))insertEnemy(s);}
     if(!on&&!s.dead){s.dead=true;}}}
 // ---------- boss rendering: the routine renders into a 320x270 surface (D3D projection 45 degrees, aspect 1.333,
 // near 10, far 2000, one directional light (1,-1,1), no ambient) and blits it with the colour key
@@ -224,8 +229,13 @@ function bossMaskHit(A,bx,by){const m=BOSS.mask;if(!m)return false;const w=V.r32
 function bossShipHit(bx,by){return !P.dead&&bossMaskHit(shipShape(),bx,by);}
 // draw what the routine blitted this frame: sprites, then the boss image
 function bossDraw(){if(!G.bossActive)return;for(const b of BOSS.blits){
-    if(b.src===HND.boss){const r=b.rect||[0,0,320,270];ctx.drawImage(GL.cv,r[0],r[1],r[2]-r[0],r[3]-r[1],b.x,b.y-PY,r[2]-r[0],r[3]-r[1]);}
-    else if(b.src>=HND.spr&&b.src<HND.spr+40){const s=S['e'+(b.src-HND.spr)];if(s&&b.rect)ctx.drawImage(s.img,b.rect[0],b.rect[1],b.rect[2]-b.rect[0],b.rect[3]-b.rect[1],b.x,b.y-PY,b.rect[2]-b.rect[0],b.rect[3]-b.rect[1]);}}}
+    if(b.eb){blit(b.eb);continue;}
+    if(b.src===HND.boss){const r=b.rect||[0,0,320,270];if(bltOk(b.x,b.y,r,320,270))ctx.drawImage(GL.cv,r[0],r[1],r[2]-r[0],r[3]-r[1],b.x,b.y-PY,r[2]-r[0],r[3]-r[1]);}
+    else if(b.src>=HND.spr&&b.src<HND.spr+40){const s=S['e'+(b.src-HND.spr)];if(s&&b.rect&&bltOk(b.x,b.y,b.rect,s.w,s.h))ctx.drawImage(s.img,b.rect[0],b.rect[1],b.rect[2]-b.rect[0],b.rect[3]-b.rect[1],b.x,b.y-PY,b.rect[2]-b.rect[0],b.rect[3]-b.rect[1]);}}}
+// BltFast without clipper (IDirectDrawSurface7 +0x1c, screen coordinates): the rectangle has to lie completely inside
+// the source and the 640x480 screen, otherwise nothing is drawn
+function bltOk(x,y,[l,t,r,b],sw,sh){return l>=0&&t>=0&&r>l&&b>t&&r<=sw&&b<=sh&&x>=0&&y>=0&&x+r-l<=W&&y+b-t<=H;}
+const blit=b=>ctx.drawImage(b.img,b.sx,b.sy,b.w,b.h,b.x,b.y,b.w,b.h);
 // boss energy (0x417bb6): frame at the top of the playfield, bar at x=66, 200 px for full energy
 function bossHUD(){if(!G.bossActive)return;ctx.drawImage(S.bosshud.img,0,PY);const wdt=Math.floor(Math.max(0,V.r32(0x494050))*200/V.r32(0x494834));
   if(wdt>0)ctx.drawImage(S.bossenergy.img,0,0,wdt,24,66,PY,wdt,24);}
@@ -292,7 +302,7 @@ function turretStep(e,d){const A=e.an;A.col=1;if(P.x+50<e.x)A.col=0;if(P.x>e.x+4
 // ---------- game state
 window.G=window.G||{};const G={state:'menu',level:0,scroll:0,speed:1,maxScroll:0,next:0,lives:5,score:0,diff:0,info:false,t:0,frame:0,
   enemies:[],shots:[],timer:0,music:null,gamma:100,endPhase:0,endT:0,bossActive:false,savedSpeed:0,hiscore:0,menuSel:0,startRow:0,slotSel:0,optSel:0,page:0,creditY:0,slot:null,sfxVol:1};
-let P;window.__dbg=()=>({G,P,MUSIC});window.__boss=()=>({phase:BOSS.phase,state:V.r32(0x494160),cnt:V.r32(0x49404c),hp:V.r32(0x494050),bx:V.r32(0x4948b8),by:V.r32(0x496458),draws:BOSS.draws.length,blits:BOSS.blits.length});window.__tick=(n)=>{for(let i=0;i<n;i++)step();render();};window.__startBoss=(id)=>{G.lives=5;G.score=0;P=null;G.level=2*id-1;startLevel(2*id-1,level().wb*32-641);G.state='play';G.gamma=100;};window.__fx=()=>({part:PART.length,expl:EXPL.length,shots:G.shots.length});window.__lv=(i)=>{P=null;startLevel(i);G.state='play';G.gamma=100;};window.__eshot=(x,y,spr)=>eshot(x,y,0,0,spr);window.__end=()=>{if(!P)P=newPlayer();endStart();};window.__probe=()=>({tile:!!tileHit(shipShape()),ram:G.enemies.filter(e=>!e.dead&&enemyTouch(shipShape(),e)).map(e=>e.type)});window.__GL=()=>GL;window.__rerender=()=>bossRender();
+let P;window.__dbg=()=>({G,P,MUSIC,BOSS,V});window.__boss=()=>({phase:BOSS.phase,state:V.r32(0x494160),cnt:V.r32(0x49404c),hp:V.r32(0x494050),bx:V.r32(0x4948b8),by:V.r32(0x496458),draws:BOSS.draws.length,blits:BOSS.blits.length});window.__tick=(n)=>{for(let i=0;i<n;i++)step();render();};window.__startBoss=(id)=>{G.lives=5;G.score=0;P=null;G.level=2*id-1;startLevel(2*id-1,level().wb*32-641);G.state='play';G.gamma=100;};window.__fx=()=>({part:PART.length,expl:EXPL.length,shots:G.shots.length});window.__lv=(i)=>{P=null;startLevel(i);G.state='play';G.gamma=100;};window.__eshot=(x,y,spr)=>eshot(x,y,0,0,spr);window.__end=()=>{if(!P)P=newPlayer();endStart();};window.__probe=()=>({tile:!!tileHit(shipShape()),ram:G.enemies.filter(e=>!e.dead&&enemyTouch(shipShape(),e)).map(e=>e.type)});window.__GL=()=>GL;window.__rerender=()=>bossRender();
 // player values from Takatis.exe: new game 0x420bf4, level (re)start 0x426710, update 0x41ced0
 function newPlayer(){return {x:10,y:184,w:49,h:34,energy:3,dead:0,bank:0,cool:0,swcool:0,weapon:0,lvl:[1,0,0],rockets:5,lines:3,beam:0,latch:{},
   shieldOn:false,shieldT:0,shieldF:0,shieldC:0,hum:false,shieldDraw:[],boomed:false,spd:3};}
@@ -305,9 +315,9 @@ function level(){return G.level===12?OUTRO_LV:LEVELS[G.level];}
 // dying at a boss the saved scroll speed comes back
 function startLevel(i,fromScroll=0,respawn=false){G.level=i;const l=level();G.scroll=fromScroll;if(!respawn)G.speed=l.speed;G.maxScroll=l.wb*32-640;
   if(respawn&&G.speed===0&&G.savedSpeed)G.speed=G.savedSpeed;
-  G.enemies=[];G.shots=[];PART=[];EXPL=[];G.next=0;G.bigone=false;G.bossActive=false;BOSS.phase=null;BOSS.fadeMs=0;
+  G.enemies=[];G.shots=[];PART=[];EXPL=[];G.objSt=new Uint8Array(l.objects.length);G.pblits=[];G.eblits=[];
+  G.bigone=false;G.bossActive=false;BOSS.phase=null;BOSS.fadeMs=0;
   G.endPhase=0;G.endT=0;G.clearMusic=false;G.bossFade=0;WAVE.prev=WAVE.cur=null;sfxStop('shield');
-  while(G.next<l.objects.length&&l.objects[G.next][1]<G.scroll+W-5)G.next++;
   const keep=P;P=newPlayer();if(keep){P.weapon=keep.weapon;P.lvl=keep.lvl;P.rockets=keep.rockets;P.lines=keep.lines;}
   G.state='ready';G.timer=0;G.gamma=0;musicPlay('level'+l.theme);}
 
@@ -320,14 +330,21 @@ function hit(a,b){return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;}
 
 // ---------- spawning
 // level object y is in screen coordinates, i.e. it includes the 16 px HUD bar
-function spawn(o){const [type,x,y0,param,flag]=o;const y=y0-PY;if(flag>G.diff)return;const sx=W;   // activated objects start at x=640
+// object activation (0x40a2ca): a waiting object starts when its x passes the window 635..640 px ahead of the scroll
+// position and its difficulty flag allows it (otherwise it keeps waiting); pass 1 of the enemy routine only looks at
+// the presses, pass 0 at all other objects. The enemies keep the order of the level file (the enemy array).
+function activate(pass){const l=level(),st=G.objSt;
+  for(let i=0;i<l.objects.length;i++){const o=l.objects[i];if(st[i]||((o[0]===26||o[0]===27)!==(pass===1)))continue;
+    if(G.scroll+640>=o[1]&&G.scroll+635<=o[1]&&o[4]<=G.diff){st[i]=1;spawn(o,i);}}}
+function insertEnemy(e){let i=G.enemies.length;while(i>0&&G.enemies[i-1].idx>e.idx)i--;G.enemies.splice(i,0,e);}
+function spawn(o,idx){const [type,x,y0,param,flag]=o;const y=y0-PY;const sx=W;   // activated objects start at x=640
   // speed triggers 34..38 = scroll speed 1..5 (0x40b326); they act the moment they reach the right screen edge,
   // with sound and sparks at the ship only if the speed actually changes. The level end is the scroll position.
   if(type>=34&&type<=38){if(G.speed!==type-33){sfx('trigger');for(let k=0;k<15;k++){particle(P.x-45,P.y-20,3);particle(P.x-30,P.y-20,7);}G.speed=type-33;}return;}
   const d=EI[type];if(!d)return;
-  const e={type,x:sx,y,param,hp:d.hp,hp0:d.hp,score:d.pts,w:d.w,h:d.h,t:0,f:0,cd:0,tc:0,an:{col:0,row:0,cnt:1,dir:0,tick:0},
+  const e={type,idx,x:sx,y,param,hp:d.hp,hp0:d.hp,score:d.pts,w:d.w,h:d.h,t:0,f:0,cd:0,tc:0,an:{col:0,row:0,cnt:1,dir:0,tick:0},
     spr:type>=3&&type<=9?'e9':S['e'+type]?'e'+type:null};
-  setPath(e,param);G.enemies.push(e);
+  setPath(e,param);insertEnemy(e);
   // objects 3..9 are claws carrying spread, laser, bounce, rocket, powerline, shield, 1up (0x40a3ac). A primary weapon
   // item is left out when the ship already has the stage that this level hands out.
   if(type>=3&&type<=9){const cap=type<=5?STAGE_TABLE[type-3][G.level]:0;
@@ -610,10 +627,20 @@ function tileHit(A){const l=level(),ts=T[l.theme].tsa,ox=Math.floor(G.scroll);
     const B={img:ts,sx:(t%10)*32,sy:Math.floor(t/10)*32,w:32,h:32,x:c*32-ox,y:r*32};if(pixHit(A,B))return B;}
   return null;}
 const shipShape=()=>shapeOf('player',playerFrame(),P.x,P.y);
-const enemyShape=e=>e.spr?shapeOf(e.spr,e.f,e.x+(e.type===17?G.shake:0),e.y):null;
-function enemyTouch(A,e){const B=enemyShape(e);return B?pixHit(A,B):hit(A,e);}
+// an enemy's image for the collision routine 0x412f50: the source rectangle of its last blit (0x40b784) at its real x
+// (so across the left edge the image sits too far left); above the screen it sits at y=0 with the rectangle starting
+// at -y, whatever the animation row (0x41ee73, 0x40bbcd)
+function enemyShape(e){if(!e.rect||!e.spr)return null;const yo=e.y+PY;let [l,t,r,b]=e.rect;if(yo<0)t=-yo;
+  return {img:S[e.spr].img,sx:l,sy:t,w:r-l,h:b-t,x:e.x,y:(yo<0?0:yo)-PY};}
+// the ship ramming an enemy (0x40bb61): the boxes (0x40e060), then the pixels; across the left edge the box starts at 0
+// and the image sits at x=0 and the real y with the blitted rectangle
+const boxShip=(x,y,w,h)=>P.x+49>x&&P.x<x+w&&P.y+34>y&&P.y<y+h;
+function ramTest(e){if(!e.rect||!e.spr)return false;
+  if(e.x>=0)return boxShip(e.x,e.y,e.w,e.h)&&pixHit(shipShape(),enemyShape(e));
+  const [l,t,r,b]=e.rect;return boxShip(0,e.y,e.w+e.x,e.h)&&pixHit(shipShape(),{img:S[e.spr].img,sx:l,sy:t,w:r-l,h:b-t,x:0,y:e.y});}
 
-// ---------- tile pass (0x42c1d0), after the enemies have moved: the ship dies on the first touching pixel of a
+// ---------- tile pass (0x42c1d0), while the foreground is drawn: the presses have moved already, all other enemies are
+// still where the last frame left them. The ship dies on the first touching pixel of a
 // foreground tile (shield or not); every shot, enemy shot and item that touches one is switched off with a hit sound
 // (small explosion and sparks, the biggest beam explodes, bounce balls split or reflect); every enemy except
 // circuits (13) and presses (26/27) whose box overlaps a foreground tile crashes without points
@@ -654,16 +681,30 @@ function collide(){
   for(const e of G.enemies){if(e.dead)continue;
     for(let i=G.shots.length-1;i>=0&&!e.dead;i--){const s=G.shots[i];if(!s.act||s.own)continue;
       if(s.x+16<e.x||s.x>e.x+e.w||s.y+s.off+16<e.y||s.y+s.off>e.y+e.h)continue;
-      if(s.type!==11){const A=shotShape(s),B=enemyShape(e);if(!A||(B?!pixHit(A,B):!hit(A,e)))continue;}
+      if(s.type!==11){const A=shotShape(s),B=enemyShape(e);if(!A||!B||!pixHit(A,B))continue;}
       shotHitsEnemy(s,e);}}}
-function updateEnemies(){const l=level();
-  while(G.next<l.objects.length&&l.objects[G.next][1]<=G.scroll+W){spawn(l.objects[G.next]);G.next++;}
-  P.spd=3;G.shake=0;   // the draw code resets the ship speed every frame; an attached magnet sets it to 1 (0x42c065, 0x40a610)
-  for(const e of G.enemies){e.t++;
+// ---------- the level routine 0x42bdb0 (also run by the end sequence): background layer, pass 1 of the enemy routine
+// (only the presses), the boss of stage 2-2, the foreground layer with the tile pass, the ship speed back to 3, pass 0
+// (all other enemies), the boss. Presses therefore come out from behind the foreground, all other enemies are drawn on
+// top of it. The blits of both passes are kept for the drawing.
+function levelRoutine(){const press=e=>e.type===26||e.type===27;
+  G.pblits=[];activate(1);for(const e of G.enemies)if(!e.dead&&press(e))enemyStep(e,G.pblits);
+  if(G.bossActive&&G.level===3)bossStep();
+  tilePass();
+  P.spd=3;   // 0x42c065; an attached magnet sets it to 1 again (0x40a610)
+  G.eblits=[];activate(0);for(const e of G.enemies)if(!e.dead&&!press(e))enemyStep(e,G.eblits);
+  if(G.bossActive&&G.level!==3)bossStep();}
+// one call of the enemy routine 0x40a260 for an active enemy: the source rectangle of the current animation frame (cut
+// at the right screen edge with the position before the move), the update, the clipping, the blit (into out), the next
+// animation frame and the ramming test
+let SHAKE=0;   // 0x49647c: set by a shaking faller, cleared by the blit of every other enemy
+function enemyStep(e,out){const A=e.an;e.t++;
+  if(e.type===16&&e.att){A.col=6;A.row=0;P.spd=1;}   // a magnet stuck to the ship shows frame 6 and slows it down (0x40a5e6)
+  let rl=A.col*e.w,rt=A.row*e.h,rr=rl+e.w,rb=rt+e.h;if(W-e.x<e.w)rr-=e.w-(W-e.x);
+  {
     if(e.type===17){   // faller (0x40a6bb): waits until the ship's nose passes, shakes for 30 frames, then drops at 6 px per frame
       if(e.dy!==6)e.dy=0;if(P.x+49>e.x&&e.dy!==6&&!e.arm)e.arm=1;
-      if(e.arm&&e.dy!==6){e.arm++;G.shake=Math.floor(Math.random()*6)-3;}if(e.arm===30)e.dy=6;}
-    if(e.type===16&&e.att)P.spd=1;
+      if(e.arm&&e.dy!==6){e.arm++;SHAKE=Math.floor(Math.random()*6)-3;}if(e.arm===30)e.dy=6;}
     stepPath(e);
     const cx=e.x+e.w/2,cy=e.y+e.h/2,A=e.an;
     switch(e.type){   // attacks from the enemy update 0x40a260; cooldowns start at 0 when the enemy appears
@@ -683,12 +724,21 @@ function updateEnemies(){const l=level();
     }
     e.cd--;
     if(e.hp<=Math.trunc(e.hp0/2)&&R(7)===3)particle(e.x+Math.trunc(e.w/2),e.y+Math.trunc(e.h/2),3);   // damaged enemies smoke (0x40aa02)
-    animStep(e);
-    if(e.x<-e.w||e.y<-300-PY||e.y>780-PY)e.dead=true;   // off the left edge or far above/below (0x40b5f0)
-    if(e.dead||P.dead)continue;
-    if(enemyTouch(shipShape(),e))ram(e);   // ship against enemy: pixel test (0x40bc2a)
   }
-}
+  // clipping (0x40b5ed): the left edge; far outside the enemy is dropped; above and below the playfield (y 0..433 on
+  // the screen) the rectangle is cut without regard to the animation row, except for the asteroid (rows of 54 px)
+  const yo=e.y+PY,ro=e.type===0?A.row*54:0;
+  if(e.x<0)rl-=e.x;
+  if(e.x<-e.w||yo<-300||yo>780)e.dead=true;
+  if(yo<0)rt=-yo+ro;if(yo+e.h>433)rb=433-yo+ro;
+  // blit (0x40b6ee): at x=0 across the left edge, otherwise shaken by 0x49647c, which only a faller that started to
+  // shake leaves alone; BltFast has no clipper, a rectangle that does not fit draws nothing
+  if(e.type!==17||!(e.arm>=1))SHAKE=0;
+  const s=S[e.spr],bx=e.x<0?0:e.x+SHAKE,by=yo<0?0:yo;e.rect=[rl,rt,rr,rb];
+  if(s&&bltOk(bx,by,e.rect,s.w,s.h))out.push({img:s.img,sx:rl,sy:rt,w:rr-rl,h:rb-rt,x:bx,y:by-PY});
+  animStep(e);
+  if(e.dead||P.dead)return;
+  if(ramTest(e))ram(e);}
 // ramming (0x40bb61): without the shield it costs 2 energy and removes the enemy (no hit sound); with the shield only
 // 26/27/39 kill. An enemy overlapping the left screen edge (0x40bdf1) kills outright without the shield, and with it
 // the presses cost 2 energy. Destroyed enemies give their points once, 5 explosions and 15 debris.
@@ -706,10 +756,7 @@ function ram(e){const blast=()=>{e.dead=true;G.score+=e.score;enemyBlast(e,15);}
 function updatePlay(){
   if(G.level===6){if(G.scroll===4270&&G.speed===1)G.speed=-2;else if(G.scroll===2970&&G.speed===-2)G.speed=2;}   // 4-1 scrolls backwards (0x41575f)
   G.scroll+=G.speed;
-  updateEnemies();                            // object activation, enemies, ramming (0x42bdb0)
-  if(G.bossActive&&G.level===3)bossStep();   // in stage 2-2 the boss comes before the foreground tiles
-  tilePass();
-  if(G.bossActive&&G.level!==3)bossStep();
+  levelRoutine();   // enemies, boss, tile pass (0x42bdb0)
   updatePlayer();explStep();partStep();shotsStep();collide();
   G.enemies=G.enemies.filter(e=>!e.dead);
   levelEnd();}
@@ -791,13 +838,13 @@ function drawSave(){ctx.drawImage(G.saveImg,0,0);rahmen(64,96,15,8);
 // (F7/F8 change it); the walker bobs on the left; the edges are faded by fadeleft/faderight. Escape ends the game.
 const END={cv:null,txt:0,px:10,sub:2,amp:0,up:false,cnt:0,ys:new Int16Array(640),off:0,buf:'',bufPx:10};
 function endStart(){G.state='end';G.level=12;const l=level();   // level 0xff: ot.lvl, the ship back at (10,200)
-  G.scroll=0;G.speed=l.speed;G.maxScroll=l.wb*32-640;G.enemies=[];G.shots=[];PART=[];EXPL=[];G.next=0;
+  G.scroll=0;G.speed=l.speed;G.maxScroll=l.wb*32-640;G.enemies=[];G.shots=[];PART=[];EXPL=[];G.objSt=new Uint8Array(l.objects.length);G.pblits=[];G.eblits=[];
   G.bossActive=false;BOSS.phase=null;G.endPhase=0;G.gamma=100;sfxStop('shield');P.x=10;P.y=184;
   if(!END.cv){END.cv=document.createElement('canvas');END.cv.width=800;END.cv.height=16;}
   Object.assign(END,{txt:0,px:10,sub:2,amp:0,up:false,cnt:0});musicPlay('end');}
 function endStep(){
   if(pressed.Escape){G.state='gameover';G.timer=240;musicPlay('highscore');return;}
-  G.scroll++;updateEnemies();tilePass();G.enemies=G.enemies.filter(e=>!e.dead);shotsStep();partStep();explStep();
+  G.scroll++;levelRoutine();G.enemies=G.enemies.filter(e=>!e.dead);shotsStep();partStep();explStep();
   if(G.scroll>13200)G.scroll=0;
   const txt=DATA.outro.text;END.buf=txt.substr(END.txt,70);END.bufPx=END.px;
   if(END.sub===0){END.px--;END.sub=1;}END.sub--;
@@ -810,10 +857,7 @@ function endStep(){
   END.off=Math.trunc(Math.sin(END.cnt*f(0.0363)+ph)*45);if(++END.cnt===300000)END.cnt=0;}
 function drawEnd(){const l=level();ctx.drawImage(S.endscreen.img,0,0);
   ctx.save();ctx.translate(0,PY);
-  const drawEnemy=e=>{if(e.spr)frame(e.spr,e.f,e.x+(e.type===17?G.shake:0),e.y,e.dir<0);};
-  for(const e of G.enemies)if(e.type!==26&&e.type!==27)drawEnemy(e);
-  drawLayer(l.B,l.wb,S.bigfont.img,Math.floor(G.scroll));
-  for(const e of G.enemies)if(e.type===26||e.type===27)drawEnemy(e);
+  G.pblits.forEach(blit);drawLayer(l.B,l.wb,S.bigfont.img,Math.floor(G.scroll));G.eblits.forEach(blit);
   shotsDraw();partDraw();explDraw();ctx.restore();
   const g=END.cv.getContext('2d'),keep=ctx;g.clearRect(0,0,800,16);ctx=g;try{text(END.buf,END.bufPx,0,6);}finally{ctx=keep;}
   for(let x=0;x<W;x++)ctx.drawImage(END.cv,x,0,1,16,x,END.ys[x]+150,1,16);
@@ -827,12 +871,12 @@ function drawPlayfield(){const l=level(),th=T[l.theme];
   ctx.save();ctx.beginPath();ctx.rect(0,PY,W,PH);ctx.clip();ctx.translate(0,PY);
   ctx.drawImage(th.stc,0,0);
   drawLayer(l.A,l.wa,th.tsb,Math.floor(G.scroll/2));
-  // draw order of 0x42bdb0: enemies behind the foreground tiles, presses in front of them
-  const drawEnemy=e=>{if(e.spr)frame(e.spr,e.f,e.x+(e.type===17?G.shake:0),e.y+(e.off||0),e.dir<0);};
-  for(const e of G.enemies)if(e.type!==26&&e.type!==27)drawEnemy(e);
+  // draw order of 0x42bdb0: the presses between the two layers, all other enemies on top of the foreground, each as
+  // the enemy routine blitted it
+  G.pblits.forEach(blit);
   if(G.bossActive&&G.level===3)bossDraw();
   drawLayer(l.B,l.wb,th.tsa,Math.floor(G.scroll));
-  for(const e of G.enemies)if(e.type===26||e.type===27)drawEnemy(e);
+  G.eblits.forEach(blit);
   if(G.bossActive&&G.level!==3)bossDraw();
   // then, as in 0x41c820: the ship with its shield, the explosions, the particles and the shot list. Ship and shield
   // are blitted without clipper and vanish once they touch the right edge.

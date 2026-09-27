@@ -108,8 +108,8 @@ for i in range(1, 13):
     scr = level_screens(lv)
     wa = layer_a_width(scr)
     A, B = lv.split_layers(wa)
+    # in the order of the file: the enemy array is processed in this order (0x42bdb0)
     objs = [[o['type'], o['x'], (o['y'] - 2**32 if o['y'] >= 2**31 else o['y']), o['param'], o['flag']] for o in lv.objects]
-    objs.sort(key=lambda o: o[1])
     data['levels'].append({'stage': stage[i - 1][0], 'hint': stage[i - 1][1], 'theme': (i + 1) // 2, 'screens': scr,
                            'speed': level_speed(lv), 'wa': wa, 'wb': scr * 20,
                            'A': base64.b64encode(b''.join(A)).decode(), 'B': base64.b64encode(b''.join(B)).decode(), 'objects': objs})
@@ -195,7 +195,7 @@ _wa = layer_a_width(_scr)
 _A, _B = _lv.split_layers(_wa)
 data['outro'] = {'stage': '', 'hint': '', 'theme': 7, 'screens': _scr, 'speed': level_speed(_lv), 'wa': _wa, 'wb': _scr * 20,
                  'A': base64.b64encode(b''.join(_A)).decode(), 'B': base64.b64encode(b''.join(_B)).decode(),
-                 'objects': sorted([[o['type'], o['x'], (o['y'] - 2**32 if o['y'] >= 2**31 else o['y']), o['param'], o['flag']] for o in _lv.objects], key=lambda o: o[1]),
+                 'objects': [[o['type'], o['x'], (o['y'] - 2**32 if o['y'] >= 2**31 else o['y']), o['param'], o['flag']] for o in _lv.objects],
                  'text': _cstr(0x4766d8)}
 
 # 3D bosses: DirectX .x meshes as triangle lists in object space (per corner: position, normal, uv). The game scales
