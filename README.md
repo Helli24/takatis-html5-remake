@@ -1,235 +1,275 @@
-# Takatis — Reverse Engineering und Browser-Remake
+# Takatis — Reverse Engineering and Browser Remake
 
-Analyse des Shoot-'em-ups **"Takatis – A Tribute To Manfred Trenz"** (Poke53280, Version 1.2,
-Januar 2002, C++ / DirectX 7 / FMOD) und ein spielbares Remake im Browser, das die
-Originaldaten verwendet.
+Analysis of the shoot 'em up **"Takatis – A Tribute To Manfred Trenz"** (Poke53280, version 1.2,
+January 2002, C++ / DirectX 7 / FMOD) and a playable remake in the browser that uses the
+original data.
 
-> **Privates Repo.** Das Spiel ist Freeware, aber `extracted/Copyright.txt` verbietet
-> ausdrücklich das Verändern des Programms und die anderweitige Verwendung von Dateien,
-> Grafiken und Sounds ohne schriftliche Genehmigung von Poke53280. Die Entwickler sind
-> weiterhin aktiv (winterworks GmbH) und planen laut ihrer Webseite ein Steam-Re-Release.
-> Dieses Repo darf deshalb **nicht öffentlich** werden. Für eine Veröffentlichung käme nur
-> der Code ohne Spieldaten in Frage, und selbst dann besser erst nach Rückfrage bei den
-> Autoren.
+> **Private repository.** The game is freeware, but `extracted/Copyright.txt` expressly forbids
+> modifying the program and using its files, graphics and sounds in any other way without
+> written permission from Poke53280. The developers are still active (winterworks GmbH) and,
+> according to their website, plan a re-release on Steam. This repository must therefore **not
+> be made public**. A publication could only cover the code without the game data, and even
+> then only after asking the authors.
 
-## Aufbau
+## Layout
 
-| Ordner | Inhalt |
+| Path | Contents |
 |---|---|
-| `Takatis Setup V1_2.exe` | Originalinstaller, Quelle von allem |
-| `extracted/` | die 203 Dateien aus dem Installer, statisch entpackt |
-| `tools/takatis.py` | Toolkit: Installer-Entpacker, Bild-Entschlüsselung, WAV-Reparatur, Level-Parser und -Writer, PNG-Renderer |
-| `tools/xfile.py` | Parser für die DirectX-`.x`-Modelle der Endgegner |
-| `game/bossvm.py` | übersetzt die Endgegner-Routine `0x4036d0`–`0x4086e1` der EXE beim Bauen in JavaScript |
-| `game/template.html` | Quelltext des Remakes (Engine, Menüs, Gegner, Bosse) |
-| `game/build.py` | baut daraus `game/takatis.html` mit allen eingebetteten Daten |
-| `game/patch_*.py` | dokumentierte Einzelschritte der Entwicklung |
-| `viewer/takatis-analyse.html` | Bericht zur Analyse |
-| `viewer/template.html` | Quelltext des Level-Atlas |
-| `libopenmpt.js`, `libopenmpt.wasm` | Fremdbibliothek (BSD) zum Abspielen der Impulse-Tracker-Musik |
+| `Takatis Setup V1_2.exe` | original installer, the source of everything |
+| `extracted/` | the 203 files from the installer, unpacked statically |
+| `tools/takatis.py` | toolkit: installer unpacker, image decryption, WAV repair, level parser and writer, PNG renderer |
+| `tools/xfile.py` | parser for the DirectX `.x` models of the bosses |
+| `game/bossvm.py` | translates the boss routine `0x4036d0`–`0x4086e1` of the EXE into JavaScript at build time |
+| `game/template.html` | source of the remake (engine, menus, enemies, bosses) |
+| `game/build.py` | builds `game/takatis.html` from it with all data embedded |
+| `tests/` | browser tests with Playwright, run with `tests/run.sh` |
+| `viewer/takatis-analyse.html` | analysis report (German, state at the start of the project) |
+| `viewer/template.html` | source of the level atlas |
+| `libopenmpt.js`, `libopenmpt.wasm` | third-party library (BSD) that plays the Impulse Tracker music |
 
-Nicht eingecheckt, weil erzeugbar: `assets/`, `assets_png/`, `render/`,
+Not checked in because they can be generated: `assets/`, `assets_png/`, `render/`,
 `game/takatis.html`, `viewer/takatis-level-atlas.html`, `viewer/data.json`.
 
-## Bauen
+## Building
 
 ```bash
-python game/build.py        # erzeugt game/takatis.html (ca. 14 MB, alles eingebettet)
+python game/build.py        # writes game/takatis.html (about 14 MB, everything embedded)
 ```
 
-Voraussetzung sind `extracted/` sowie `assets/` (Sounds und Musik in Standardformaten).
-`assets/` wird aus `extracted/` erzeugt, siehe `tools/takatis.py`.
+It needs `extracted/` and `assets/` (sounds and music in standard formats).
+`assets/` is generated from `extracted/`, see `tools/takatis.py`.
 
-## Erkenntnisse zu den Dateiformaten
+## Testing
 
-* **Installer**: NitroSetup 1.4 mit eigener LZSS-Variante. Flag-Byte MSB zuerst,
-  Rückverweis 16 Bit Big-Endian, 12 Bit Distanz, 4 Bit Länge plus 2.
-* **Grafiken** (`.gfx`, `.stc`, `.tsa`, `.tsb`): 8-Bit-BMPs, deren Bildzeilen permutiert
-  **und** horizontal gespiegelt sind. Die Permutationstabelle ist `Level/Levelinfos.tsf`:
-  Zeile k enthält eine Permutation von 1..k für Bilder der Höhe k. Transparenz ist reines Grün.
-* **Sounds** (`.sfx`, `.spc`): RIFF-WAV mit umbenannten Chunks, `WAVEfmt ` → `LOSTsfx `
-  und `data` → `twew`.
-* **Musik** (`.trk`): unveränderte Impulse-Tracker-Module.
-* **Endgegner** (`3D/*.a01` usw.): DirectX-`.x`-Dateien im Textformat, Skins als BMP ohne
-  Verschlüsselung.
-* **Level** (`.lvl`):
+```bash
+tests/run.sh                # needs Node.js and Playwright with Chromium
+```
+
+The tests load `game/takatis.html` in Chromium, drive the game with keyboard events and helper
+functions of the page (`__tick`, `__dbg`, `__lv`, `__startBoss`) and check that no error occurs:
+all 12 stages played by a bot, game mechanics, laser, presses, a boss fight with saving, all
+menus with game over and name entry, loading a saved game, console and cheats. Screenshots and
+logs go to `tests/out/`.
+
+## File formats
+
+* **Installer**: NitroSetup 1.4 with its own LZSS variant. Flag byte MSB first, back reference
+  16 bit big endian, 12 bit distance, 4 bit length plus 2.
+* **Graphics** (`.gfx`, `.stc`, `.tsa`, `.tsb`): 8-bit BMPs whose rows are permuted **and**
+  mirrored horizontally. The permutation table is `Level/Levelinfos.tsf`: row k holds a
+  permutation of 1..k for images of height k. Transparency is pure green.
+* **Sounds** (`.sfx`, `.spc`): RIFF WAV with renamed chunks, `WAVEfmt ` → `LOSTsfx ` and
+  `data` → `twew`.
+* **Music** (`.trk`): unmodified Impulse Tracker modules.
+* **Bosses** (`3D/*.a01` etc.): DirectX `.x` files in text format, skins as unencrypted BMPs.
+* **Levels** (`.lvl`):
   ```
-  u8   screens           Levellänge in Bildschirmen zu 640 px
-  u8   speed             Start-Scrollgeschwindigkeit in px/Frame
-  u8[13][screens*10+10]  Layer A, Parallax-Hintergrund, halbe Geschwindigkeit, Tileset NN.tsb
-  u8[13][screens*20]     Layer B, Vordergrund, Tileset NN.tsa
+  u8   screens           level length in screens of 640 px
+  u8   speed             initial scroll speed in px/frame
+  u8[13][screens*10+10]  layer A, parallax background, half speed, tileset NN.tsb
+  u8[13][screens*20]     layer B, foreground, tileset NN.tsa
   u32  count
   { u32 type; u32 x; i32 y; u32 param; u8 minDifficulty; u8 pad[3]; } objects[count]
   ```
-  Kacheln sind 32×32, ein Tileset hat 10×10 Kacheln, Index 0 ist leer.
+  Tiles are 32×32, a tileset has 10×10 tiles, index 0 is empty.
 
-## Erkenntnisse aus dem Maschinencode
+## Findings from the machine code
 
-Adressen beziehen sich auf `extracted/Takatis.exe`.
+Addresses refer to `extracted/Takatis.exe`.
 
-* `0x40c760` Gegner-Init: pro Typ Energie (`+0x20`), Größe (`+0x18/+0x1c`),
-  Bilderzahl (`+0x3c`), Bildverzögerung (`+0x44`), Punkte (`+0x64`).
-* `0x4856c0` Bewegungsmuster: 64 Einträge zu 320 Byte, je eine Liste aus
-  (dx, dy, Dauer). Dauer −1/−2 hält, −3 wiederholt, −4 setzt zurück.
-* `0x40a260` Gegner-Update: Schussverhalten pro Typ. Türme feuern alle 90/70/40 Bilder
-  je nach Schwierigkeit in drei festen Richtungen, der Spinner nur im Animationsbild 1
-  mit einer Chance von 1 zu 11.
-* `0x40f3d0` Schuss-Konstruktor, `0x41e570` Kollision und Schaden.
-  Gegner-Energie ist Feld `+0x20` in einem flachen Array zu 124 Byte je Eintrag bei
-  `0x4948bc`, der Schaden steht im Schuss-Feld `+0x5c`.
-* Schadenswerte: Spread 3 bei 1/3/5/7 Schüssen je Stufe, Laser 5/4/3/3 bei zwei Schüssen,
-  Bounce 4 groß und 3 klein, Powerline 8, Rakete 100, Beam 10/15/20/25.
-  Gegnerschüsse tragen den Wert 10 im Schadensfeld, beim Spieler ziehen sie aber pauschal 1 Energie ab (siehe unten).
-* **Bildrate** (`0x418102`): `Flip` mit `DDFLIP_WAIT`, danach Warten bis mindestens 10 ms seit Framebeginn
-  (`GetTickCount`, Wert bei `0x485698`). Das Spiel läuft also mit der Bildwiederholrate, höchstens etwa 100 fps.
-  Die FAQ empfiehlt 75 Hz, das Remake läuft deshalb fest mit 75 fps. Alle Frame-Angaben hier beziehen sich darauf.
-* **Schiff** (`0x41ced0`): 3 px pro Frame, x 0..591, y 17..398 (Bildschirm). Gegensätzliche Tasten heben die
-  Bewegung ganz auf. Neigungszähler −10..10, Frame 0 neutral, 1/2 sinken, 3/4 steigen.
-* **Energie** 3. Gegnerschuss −1, Rammen −2, Tod erst unter 0, also beim vierten Schusstreffer. Keine
-  Unverwundbarkeit nach Treffer oder Respawn. Gerammte Gegner werden entfernt und geben einfache Punkte.
-  Wände töten sofort, auch mit Schild. Trefferbox für Gegnerschüsse und Items ist das volle Rechteck 49×31.
-* **Schild** 1000 Frames, ab 500 blinkt er jedes 2., ab 750 jedes 4. Frame. Er schluckt Schüsse und zerstört
-  gerammte Gegner, nur die Typen 26, 27 und 39 töten trotzdem.
-* **Tod** (`0x41c820`, Ende bei `0x41c995`): Zähler 400 läuft ab, dann Leben −1, Raketen −1, Powerlines −1,
-  Explosionen, Partikel und Schüsse gelöscht, Abblenden mit 5 ms je Stufe, danach Stage-Intro oder Game over
-  (`0x4966bc`). Neustart am Levelanfang oder, wenn schon überschritten, bei der Levelhälfte. Das Scrolling läuft
-  weiter.
-* **Start** (`0x420bf4`): Spread 1, Laser 0, Bounce 0, 5 Raketen, 3 Powerlines. Leben 5/4/3 je nach
-  Schwierigkeit. Stage geschafft: +1 Leben, keine Punkte. Endgegner: +10000.
-* **Waffen**: Spread und Bounce feuern einmal pro Tastendruck ohne Abklingzeit, der Laser feuert Dauerfeuer alle
-  24/18/12/6 Frames. Tasten 1 Spread, 2 Bounce, 3 Laser, Num 0 schaltet weiter. Der Beam lädt 2 pro Frame bis 248,
-  die Stufen liegen bei >40, >110, >180 und =248. Rakete: Ziel ist der erste passende Gegner der Liste, Lenkung
-  pro Achse 6 px oder 1 px pro Frame. Powerline: 13 Segmente über die ganze Höhe, 15 px pro Frame, 8 Schaden in
-  jedem Frame mit Kontakt. Die Laser-Sinuskurve (`0x40fea0`) ist exakt in float32 nachgebaut.
-* **Punkte**: Abschuss per Waffe zählt die Punkte des Gegners fünfmal (die Addition steht in der
-  Explosionsschleife `0x41f250`), Rammen einmal. Items: Waffe +1000, Rakete +100, Powerline +200, Schild +500,
-  1UP +2500. Zufallsdrops bei `rand()%3500`: ≤20 Schild, ≤100 Rakete, ≤140 Powerline.
-* **Sound-IDs** (Ladefunktion bei `0x414a00`): 0 Explosion, 1 Spread, 2 Beam, 3 Hit, 5 Rocket, 6 Laser, 7 Bounce,
-  0x11 Shield, 0x12 BigExplosion, 0x13 Powerline, 0x15 Morph, 0x16 Laser2, 0x17 Bigshot, 0x18 Trigger,
-  0x19 Klippikloppi, Sprache 4 Intro, 8 Cheat, 9 online, 0xa bounce, 0xb spread, 0xc laser, 0xd homing, 0xe line, 0xf shield,
-  0x10 1up, 0x14 bigone.
-* **Level-Objekte**: Die y-Koordinate ist eine Bildschirmkoordinate und enthält die 16 px der oberen HUD-Leiste.
-  Ein Objekt wird aktiv (`0x40a2ca`), wenn seine x-Position das Fenster 635..640 px vor der Scrollposition
-  durchläuft und sein Schwierigkeits-Flag passt, und startet bei x=640. Die Objekte bleiben in der Reihenfolge der
-  Leveldatei (das Gegner-Array), die nicht nach x sortiert ist. In dieser Reihenfolge werden sie bewegt, gezeichnet
-  und geprüft (z. B. welches Ziel eine Rakete zuletzt markiert, welchen Gegner ein Schuss zuerst trifft).
-* **Speed-Trigger** (`0x40b326`): Typ 34..38 setzt die Scrollgeschwindigkeit auf 1..5, und zwar sofort beim Erreichen
-  des rechten Randes. Das Levelende ergibt sich allein aus der Scrollposition. Stage 4-1 scrollt ab Position 4270
-  mit −2 rückwärts und ab 2970 wieder mit 2 vorwärts (`0x41575f`).
-* **Pressen** (Typ 26/27, 64×256, Energie 10000) bewegen sich nur über ihr Bewegungsmuster (19–22).
-* **HUD** (`0x41c34c`): Waffenstufen als `ws.gfx`-Blöcke im Abstand von 7 px bei x=122 (Spread), 222 (Bounce),
-  322 (Laser); Raketen bei x=422, Powerlines bei x=522.
-* **Gegner** (Update `0x40a260`, Init `0x40c760`): Die Init-Werte (Energie, Größe, Animation, Punkte) liest
-  `build.py` beim Bauen direkt aus der EXE. Animation mit Frame-Zähler und optionalem Hin-und-zurück (Typen 1, 15,
-  25, 28, 29, 30). Abklingzeiten starten beim Erscheinen bei 0. Angriffe hängen teils am Frame-Zähler: Aufzug (25)
-  am Ende des Vorwärtslaufs (alle 280 Frames), Bumper (30) bei Bild 1, Minenleger (24) bei Bild 4, Zeitbombe (31)
-  einmalig nach 600 Frames. Objekte 3–9 sind Greifer, die ein eigenes Item tragen (+8/+42). Typ 13 ist der Circuit,
-  16 der Magnet (Pfad 18, verfolgt das Schiff, haftet daran und bremst es auf 1 px/Frame). Faller (17) fallen nach
-  30 Frames Wackeln mit 6 px/Frame. Pfad-Zähler −2 bedeutet Verfolgung mit 2 px/Frame. Gegnerschüsse driften mit
-  (Tempo−1) nach links. Jeder Gegner außer 13, 26, 27 zerschellt, wenn sein Rechteck eine Vordergrundkachel überlappt.
-* **Kollision** (`0x412f50`): pixelgenau. Zwei Formen berühren sich, wo beide Quellpixel nicht die Farbe
-  0x07E0 (Grün, fest bei `0x485644`) haben. So prüft das Original Schiff gegen Wände und Gegner, Schüsse und
-  Powerline gegen Wände und Gegner (Raketen nur über das Rechteck). Gegnerschüsse und Items treffen das Schiff
-  über das Rechteck 49×31, Gegner zerschellen an Kacheln über ihr Rechteck. Die Form eines Gegners ist das
-  Quellrechteck seines letzten Blits an seiner echten x-Position (über den linken Rand hinaus liegt sie also zu
-  weit links), oberhalb des Bildschirms bei y=0 mit Rechteck ab −y. Das Remake baut dafür Masken aus Sprites
-  und Tilesets.
-* **Darstellung**: Das Spiel läuft fest in 640×480 mit 16 Bit (`0x485648`). GDI schneidet die Bitmapfarben beim
-  Kopieren auf RGB565 ab, Colour-Key aller Sprites und Kacheln ist die Grün-Maske des Pixelformats (`0x412770`).
-  Dadurch sind auch fast reine Grüntöne durchsichtig (4 Pixel in `Lasersmoke`, 14 in `03.tsb`). `build.py`
-  rechnet alle Farben entsprechend um. Welche Surfaces einen Key bekommen, steht bei `0x41a789`.
-* **Ablauf eines Frames** (`0x41575a`/`0x41c820`): Scrollposition + Tempo, dann die Level-Routine `0x42bdb0`:
-  Parallax-Ebene (tsb, halbe Geschwindigkeit), Gegner-Routine Durchgang 1 (nur Pressen), Boss von Stage 2-2,
-  Vordergrund (tsa) mit dem Kachel-Durchgang (Schiff, Schüsse und Gegner gegen jede Kachel), Schiffstempo
-  zurück auf 3, Gegner-Routine Durchgang 0 (alle anderen Gegner), Boss der übrigen Stages. Danach Schiff bzw.
-  Todessequenz, Explosionen, Partikel, Schussliste, HUD, Kollisionen (`0x41e570`), Levelende. Pressen kommen
-  also hinter dem Vordergrund hervor, alle anderen Gegner liegen davor. Der Kachel-Durchgang sieht die Gegner
-  noch an ihrer Position aus dem letzten Frame.
-* **Gegner-Blit** (`0x40a61a`, `0x40b5ed`–`0x40b784`): Quellrechteck des aktuellen Animationsbilds vor der
-  Bewegung, der rechte Rand wird mit der alten x-Position abgeschnitten (einlaufende Gegner fehlen dort um ihre
-  Schrittweite). Nach der Bewegung links abschneiden, oben und unten (Grenze y=433) ohne Rücksicht auf die
-  Animationszeile, nur der Asteroid rechnet mit Zeilen zu 54 px. BltFast hat keinen Clipper: ein Rechteck, das
-  nicht ganz passt, zeichnet nichts. Erst danach geht die Animation weiter. Ein Faller wackelt über die globale
-  Variable `0x49647c`, die jeder andere Blit wieder löscht. Der angedockte Magnet zeigt Bild 6.
-* **Endgegner** (`0x4036d0`–`0x4086e1`): Die ganze Routine wird aus dem Maschinencode nach JavaScript übersetzt
-  und läuft auf emuliertem Speicher (`.rdata`/`.data` aus der EXE). Das Bild entsteht in einer 320×270-Surface mit
-  Z-Buffer: Projektion 45°, Seitenverhältnis 1,333, near 10, far 2000, ein Richtungslicht (1,−1,1), kein
-  Umgebungslicht, Licht pro Vertex mit normalisierten Normalen, Material der Datei (Diffuse = Ambient =
-  faceColor, Boss 3 also 0,584), Texturen mit WRAP und linearem Filter, Ergebnis in RGB565. Der DX7-Loader nimmt
-  `MeshNormals` nur bei gleicher Anzahl wie Vertices, sonst rechnet er sie selbst (`0x42e5d1`). Unter 600 Energie
-  (nicht auf leicht) lässt Boss 5 die Gegner-Routine für seine Schwanzsegmente ein zweites Mal laufen.
-* **Effekte**: Partikel (`0x491c20`, Typen 0–9 mit Debris1–5, Smoke, Lasersmoke, Shieldflare, Drive) und
-  Explosionen (`0x494078`, Explosion/Explosion2, BeamExplode, Small_Explosion, mit Verzögerung) wie im Original.
-* **Schussliste** (`0x492540`): eine gemeinsame Liste für Spieler- und Gegnerschüsse sowie Items; ein Schuss wird
-  gezeichnet, bevor er sich bewegt.
-* **Sound** (`0x414d00`): ein Puffer je Sound, erneutes Abspielen startet ihn neu, alle mit derselben Lautstärke.
-  Nur das Schild-Summen läuft in Schleife.
-* **Levelende**: Phasen bei `0x49645c` (1 Ende erreicht, 2 Übergang, 3 Boss zerstört). Das Schiff fliegt mit
-  4 px/Frame hinaus, dann `morph`, nach 50 Frames Musik und die Wellen-Überblendung (Zeile 430 aus `title.gfx`),
-  nach 430 Frames Abblenden in 2 s, +1 Leben, nächste Stage. Boss-Stages: „Big one“ 640 px vor dem Ende,
-  Scrolling stoppt, Schiff gleitet nach (0,184), Musik blendet über 100 Frames aus.
-* **Stage-Intro** (`0x416301`): „Get ready“ bei (160,180) und drei Zeilen aus der EXE, Einblenden 100×6 ms,
-  dann 2 s warten. **Speichern** nach den Bossen 1–5 (Zustand 7, `0x423400`), **Abspann** nach Boss 6
-  (Zustand 10, `0x42a250`, dieselbe Level-Routine mit `ot.lvl` und `bigfont.gfx` als Kacheln).
-* **Schrift**: proportional, Breitentabelle bei `0x484820`, Vorschub Breite+1, Leerzeichen 10 (+1).
-* **Programmzustände** (`0x4936b0`, Sprungtabelle `0x41815e`): 0 Menü `0x420900`, 1 Spiel, 2 Startsequenz
-  `0x429340`, 3 Titel `0x4203a0`, 4 Optionen `0x420ef0`, 5 Hilfe `0x421cc0`, 6 Neues Spiel `0x422520`,
-  7 Speichern `0x423400`, 8 Highscores `0x4243f0`, 9 Credits `0x424fd0`, 10 Abspann `0x42a250`, 11 Joystick
-  `0x42ab60`. Die Menüs fragen die Tasten mit `GetAsyncKeyState` ab, mit einer Sperre bis zum Loslassen
-  (`0x4966ab`) und einem gemeinsamen Cursor (`0x4966c0`). Der wird nicht überall zurückgesetzt: Nach dem Speichern
-  in Slot 2 steht er nach „Spiel beenden“ im Menü auf „Options“.
-* **Blenden** (`0x4124f0` ein, `0x412620` aus): 100 Gamma-Stufen zu n ms, blockierend. Escape während einer Blende
-  setzt `0x496460`, das nie zurückgesetzt wird. Ist die Startsequenz über Schritt 3 hinaus (`0x494898`), endet
-  danach jede Blende sofort. Wartezeiten (`0x425bd0`) lassen sich nicht überspringen. Escape im Intro führt daher
-  direkt ins Menü, weil der Titel die noch gedrückte Taste sieht.
-* **Startsequenz** (Zustand 2): Poke53280, Loading, zwei Intro-Bilder mit Sprachsample, dann der Titel mit
-  wehendem Logo (140 Zeilen, Sinus) und Sternenfeld. Die Credits (Zustand 9) laufen über Kacheln, Schienen und
-  Türme; ihr Text steht als 351 Zeilen im Code bei `0x426bb8`, die Hilfe als 5 Seiten bei `0x480e0c`.
-* **Im Spiel** (`0x4176dd`): F1 Hilfe, F2 Lautstärke, Escape die Abfrage „Spiel beenden ?“ (nicht bei Game over
-  und nicht im Stage-Übergang `0x4966dc`), Tab die Konsole. Eine Pause-Taste gibt es nicht.
-* **Konsole** (Tab, `0x401500`–`0x4029af`, Eingabe `0x425c50`): nur im Spiel, hält es an. Neun Zeilen Verlauf
-  und die Eingabe „> …“ in weißer Systemschrift über `Console.gfx` auf dem eingefrorenen Bild. Buchstaben und
-  Leerzeichen höchstens alle 150 ms, Return alle 500 ms. Befehle: `help`, `quit`, `infomode on/off`,
-  `bullettime mode on/off` (mindestens 70 ms je Frame statt 10, `0x485698`), `katakis`/`wanderwuxe`
-  (`player2.gfx` bzw. normales Schiff), `the nexus`, `dosenhalter` (öffnet im Original das CD-Laufwerk). Cheats mit
-  Sprachsample und Cheater-Flag: `the barrens` Schild, `silkworm` +5 Raketen, `rick dangerous` +5 Powerlines,
-  `master of puppets` 99 Leben, `ping pong`/`we will rock you`/`feuerwuxe` Bounce/Laser/Spread auf 4,
-  `crazy volcanos` harmlose Vulkankugeln (Vulkane feuern dafür alle 15 statt 50 Frames), `merry xmas` jeder
-  Abschuss lässt Schild, Rakete oder Powerline fallen, `zerbiebomb` ein Schuss mit 11000 Schaden aus jedem
-  Gegner, `scott me up beamy` springt ans Levelende. `pfundi` zerstört das Schiff und setzt die Leben auf 1.
-  Der Titel setzt Vulkane, Extras und Bullettime zurück.
-* **Optionen** ohne `Options.ini` (`0x419161`): Effekt an, Joystick-Knöpfe 0..7, Rauch aus, Lautstärken 100/100.
-  Die mitgelieferte `Options.ini` besteht aus 13 Nullbytes, das Remake nimmt deshalb die Werte ohne Datei.
-* **Spielstände** `Takatis.SG1`..`SG6`, 48 Byte, jeder Wert +0x1966: Stage, Schwierigkeit, Waffe, Spread, Laser,
-  Bounce, Raketen, Powerlines, Leben, Schildzeit, Punkte, Cheater. Nach Boss n wird die folgende Stage gespeichert.
-* **Highscores** `Highscores.hsl`: 10 Einträge zu 88 Byte mit Prüfsumme, Standardliste von Poke53280 (100000) bis
-  ZFX-Forum (10000). Bei Game over steigt „Game Over“ von y=441 mit 3 px pro Frame auf, dann folgt die
-  Namenseingabe oder eine Bemerkung (zu wenig Punkte, Cheater).
+* `0x40c760` enemy init: per type energy (`+0x20`), size (`+0x18/+0x1c`), number of frames
+  (`+0x3c`), frame delay (`+0x44`), points (`+0x64`).
+* `0x4856c0` movement patterns: 64 entries of 320 bytes, each a list of (dx, dy, duration).
+  Duration −1/−2 holds, −3 repeats, −4 resets.
+* `0x40a260` enemy update: firing behaviour per type. Turrets fire every 90/70/40 frames
+  depending on the difficulty in three fixed directions, the spinner only in animation frame 1
+  with a chance of 1 in 11.
+* `0x40f3d0` shot constructor, `0x41e570` collision and damage. Enemy energy is field `+0x20` in
+  a flat array of 124 bytes per entry at `0x4948bc`, the damage is in shot field `+0x5c`.
+* Damage: spread 3 with 1/3/5/7 shots per level, laser 5/4/3/3 with two shots, bounce 4 big and
+  3 small, powerline 8, rocket 100, beam 10/15/20/25. Enemy shots carry 10 in the damage field,
+  but take a flat 1 energy from the player (see below).
+* **Frame rate** (`0x418102`): `Flip` with `DDFLIP_WAIT`, then a wait until at least 10 ms have
+  passed since the start of the frame (`GetTickCount`, value at `0x485698`). The game therefore
+  runs at the display refresh rate, at most about 100 fps. The FAQ recommends 75 Hz, so the
+  remake runs at a fixed 75 fps. All frame counts here refer to that.
+* **Ship** (`0x41ced0`): 3 px per frame, x 0..591, y 17..398 (screen). Opposite keys cancel the
+  movement completely. Tilt counter −10..10, frame 0 neutral, 1/2 sinking, 3/4 rising.
+* **Energy** 3. Enemy shot −1, ramming −2, death only below 0, i.e. with the fourth shot hit. No
+  invulnerability after a hit or a respawn. Rammed enemies are removed and give single points.
+  Walls kill at once, even with the shield. The hit box for enemy shots and items is the full
+  49×31 rectangle.
+* **Shield** 1000 frames, from 500 on it blinks every 2nd, from 750 on every 4th frame. It
+  swallows shots and destroys rammed enemies, only types 26, 27 and 39 still kill.
+* **Death** (`0x41c820`, end at `0x41c995`): a counter of 400 runs out, then lives −1, rockets
+  −1, powerlines −1, explosions, particles and shots cleared, a fade out with 5 ms per step,
+  then the stage intro or game over (`0x4966bc`). Restart at the start of the level or, if
+  already passed, at its middle. The scrolling goes on.
+* **Start** (`0x420bf4`): spread 1, laser 0, bounce 0, 5 rockets, 3 powerlines. Lives 5/4/3
+  depending on the difficulty. Stage cleared: +1 life, no points. Boss: +10000.
+* **Weapons**: spread and bounce fire once per key press without cooldown, the laser fires
+  continuously every 24/18/12/6 frames. Keys 1 spread, 2 bounce, 3 laser, numpad 0 cycles. The
+  beam charges 2 per frame up to 248, the levels are at >40, >110, >180 and =248. Rocket: the
+  target is the first matching enemy of the list, steering per axis 6 px or 1 px per frame.
+  Powerline: 13 segments over the full height, 15 px per frame, 8 damage in every frame with
+  contact. The laser sine curve (`0x40fea0`) is rebuilt exactly in float32.
+* **Points**: a kill by weapon counts the enemy's points five times (the addition sits in the
+  explosion loop `0x41f250`), ramming once. Items: weapon +1000, rocket +100, powerline +200,
+  shield +500, 1UP +2500. Random drops with `rand()%3500`: ≤20 shield, ≤100 rocket,
+  ≤140 powerline. Claws always drop the item they carry; the rocket claw adds 3 rockets, the
+  powerline claw 1 powerline (`0x41f542`).
+* **Sound IDs** (loader at `0x414a00`): 0 explosion, 1 spread, 2 beam, 3 hit, 5 rocket, 6 laser,
+  7 bounce, 0x11 shield, 0x12 big explosion, 0x13 powerline, 0x15 morph, 0x16 laser2, 0x17
+  bigshot, 0x18 trigger, 0x19 klippikloppi; speech 4 intro, 8 cheat, 9 online, 0xa bounce,
+  0xb spread, 0xc laser, 0xd homing, 0xe line, 0xf shield, 0x10 1up, 0x14 bigone.
+* **Level objects**: the y coordinate is a screen coordinate and includes the 16 px of the top
+  HUD bar. An object becomes active (`0x40a2ca`) when its x position passes the window 635..640 px
+  ahead of the scroll position and its difficulty flag matches, and starts at x=640. The objects
+  keep the order of the level file (the enemy array), which is not sorted by x. They are moved,
+  drawn and checked in that order (e.g. which target a rocket marks last, which enemy a shot
+  hits first).
+* **Speed triggers** (`0x40b326`): types 34..38 set the scroll speed to 1..5, right when they
+  reach the right edge. The end of the level follows from the scroll position alone. Stage 4-1
+  scrolls backwards with −2 from position 4270 and forwards again with 2 from 2970
+  (`0x41575f`).
+* **Presses** (types 26/27, 64×256, energy 10000) move only by their movement pattern (19–22).
+* **HUD** (`0x41c34c`): weapon levels as `ws.gfx` blocks 7 px apart at x=122 (spread), 222
+  (bounce), 322 (laser); rockets at x=422, powerlines at x=522.
+* **Enemies** (update `0x40a260`, init `0x40c760`): `build.py` reads the init values (energy,
+  size, animation, points) straight from the EXE. Animation with a frame counter and an optional
+  back and forth (types 1, 15, 25, 28, 29, 30). Cooldowns start at 0 when an enemy appears.
+  Some attacks depend on the frame counter: elevator (25) at the end of its forward run (every
+  280 frames), bumper (30) at frame 1, mine layer (24) at frame 4, time bomb (31) once after
+  600 frames. Objects 3–9 are claws that carry an item of their own (+8/+42). Type 13 is the
+  circuit, 16 the magnet (path 18, follows the ship, sticks to it and slows it to 1 px/frame).
+  Fallers (17) drop at 6 px/frame after 30 frames of shaking. Path counter −2 means chasing at
+  2 px/frame. Enemy shots drift left with (speed−1). Every enemy except 13, 26, 27 is destroyed
+  when its rectangle overlaps a foreground tile.
+* **Collision** (`0x412f50`): pixel exact. Two shapes touch where neither source pixel has the
+  colour 0x07E0 (green, fixed at `0x485644`). That is how the original tests the ship against
+  walls and enemies, and shots and the powerline against walls and enemies (rockets only by
+  their rectangle). Enemy shots and items hit the ship by the 49×31 rectangle, enemies crash
+  into tiles by their rectangle. An enemy's shape is the source rectangle of its last blit at
+  its real x position (beyond the left edge it therefore lies too far left), above the screen at
+  y=0 with the rectangle starting at −y. The remake builds masks from sprites and tilesets for
+  this.
+* **Display**: the game runs at a fixed 640×480 in 16 bit (`0x485648`). GDI truncates the bitmap
+  colours to RGB565 when copying, the colour key of all sprites and tiles is the green mask of
+  the pixel format (`0x412770`). Nearly pure greens are therefore transparent too (4 pixels in
+  `Lasersmoke`, 14 in `03.tsb`). `build.py` converts all colours accordingly. Which surfaces get
+  a key is at `0x41a789`.
+* **Frame order** (`0x41575a`/`0x41c820`): the background picture (`NN.stc`) from offset
+  `0x49406c`, which moves 1 px per frame from scroll speed 3 on (not in 1-2); scroll position +
+  speed, then the level routine `0x42bdb0`: parallax layer (tsb, half speed), enemy routine pass
+  1 (presses only), boss of stage 2-2, foreground (tsa) with the tile pass (ship, shots and
+  enemies against every tile), ship speed back to 3, enemy routine pass 0 (all other enemies),
+  boss of the other stages. Then the ship or the death sequence, explosions, particles, shot
+  list, HUD, collisions (`0x41e570`), level end. Presses therefore come out from behind the
+  foreground, all other enemies lie in front of it. The tile pass sees the enemies at their
+  position of the previous frame.
+* **Enemy blit** (`0x40a61a`, `0x40b5ed`–`0x40b784`): source rectangle of the current animation
+  frame before the movement, the right edge is clipped with the old x position (incoming enemies
+  lack their step width there). After the movement clipping on the left, at the top and at the
+  bottom (limit y=433) without regard to the animation row, only the asteroid works with rows of
+  54 px. BltFast has no clipper: a rectangle that does not fit completely draws nothing. Only
+  then does the animation advance. A faller shakes via the global `0x49647c`, which every other
+  blit clears again. The docked magnet shows frame 6.
+* **Bosses** (`0x4036d0`–`0x4086e1`): the whole routine is translated from machine code to
+  JavaScript and runs on emulated memory (`.rdata`/`.data` from the EXE). The image is rendered
+  into a 320×270 surface with a z-buffer: projection 45°, aspect 1.333, near 10, far 2000, one
+  directional light (1,−1,1), no ambient light, per-vertex lighting with normalised normals,
+  material from the file (diffuse = ambient = faceColor, so 0.584 for boss 3), textures with
+  WRAP and linear filtering, result in RGB565. The DX7 loader only takes `MeshNormals` when
+  there are as many as vertices, otherwise it computes them itself (`0x42e5d1`). Below 600
+  energy (not on easy) boss 5 runs the enemy routine a second time for its tail segments.
+* **Effects**: particles (`0x491c20`, types 0–9 with Debris1–5, Smoke, Lasersmoke, Shieldflare,
+  Drive) and explosions (`0x494078`, Explosion/Explosion2, BeamExplode, Small_Explosion, with a
+  delay) as in the original.
+* **Shot list** (`0x492540`): one shared list for player and enemy shots and items; a shot is
+  drawn before it moves.
+* **Sound** (`0x414d00`): one buffer per sound, playing it again restarts it, all at the same
+  volume. Only the shield hum loops.
+* **Level end**: phases at `0x49645c` (1 end reached, 2 transition, 3 boss destroyed). The ship
+  flies out at 4 px/frame, then `morph`, after 50 frames music and the wave transition (row 430
+  of `title.gfx`), after 430 frames a 2 s fade out, +1 life, next stage. Boss stages: "Big one"
+  640 px before the end, the scrolling stops, the ship glides to (0,184), the music fades out
+  over 100 frames.
+* **Stage intro** (`0x416301`): "Get ready" at (160,180) and three lines from the EXE, fade in
+  100×6 ms, then a 2 s wait. The intro of 4-1, 5-1 and 6-1 turns a negative scroll speed back
+  to 1 (`0x416715`). **Saving** after bosses 1–5 (state 7, `0x423400`), **end sequence** after
+  boss 6 (state 10, `0x42a250`, the same level routine with `ot.lvl` and `bigfont.gfx` as tiles).
+* **Font**: proportional, width table at `0x484820`, advance width+1, space 10 (+1).
+* **Program states** (`0x4936b0`, jump table `0x41815e`): 0 menu `0x420900`, 1 game, 2 start
+  sequence `0x429340`, 3 title `0x4203a0`, 4 options `0x420ef0`, 5 help `0x421cc0`, 6 new game
+  `0x422520`, 7 save `0x423400`, 8 highscores `0x4243f0`, 9 credits `0x424fd0`, 10 end sequence
+  `0x42a250`, 11 joystick `0x42ab60`. The menus poll the keys with `GetAsyncKeyState`, with a
+  latch until release (`0x4966ab`) and a shared cursor (`0x4966c0`). It is not reset
+  everywhere: after saving in slot 2 and quitting the game, the menu cursor stands on
+  "Options".
+* **Fades** (`0x4124f0` in, `0x412620` out): 100 gamma steps of n ms, blocking. Escape during a
+  fade sets `0x496460`, which is never cleared. Once the start sequence is past step 3
+  (`0x494898`), every later fade ends at once. Waits (`0x425bd0`) cannot be skipped. Escape in
+  the intro therefore leads straight to the menu, because the title sees the key still held.
+* **Start sequence** (state 2): Poke53280, loading, two intro pictures with a speech sample,
+  then the title with a waving logo (140 rows, sine) and a starfield. The credits (state 9) run
+  over tiles, rails and turrets; their text is stored as 351 lines in the code at `0x426bb8`,
+  the help as 5 pages at `0x480e0c`.
+* **In the game** (`0x4176dd`): F1 help, F2 volume, Escape the question "Spiel beenden ?" (not
+  at game over and not during the stage transition `0x4966dc`), Tab the console. There is no
+  pause key.
+* **Console** (Tab, `0x401500`–`0x4029af`, input `0x425c50`): only in the game, and it stops the
+  game. Nine lines of history and the input "> …" in white system font over `Console.gfx` on the
+  frozen screen. Letters and space at most every 150 ms, Return every 500 ms. Commands: `help`,
+  `quit`, `infomode on/off`, `bullettime mode on/off` (at least 70 ms per frame instead of 10,
+  `0x485698`), `katakis`/`wanderwuxe` (`player2.gfx` or the normal ship), `the nexus`,
+  `dosenhalter` (opens the CD drive in the original). Cheats with a speech sample and the cheater
+  flag: `the barrens` shield, `silkworm` +5 rockets, `rick dangerous` +5 powerlines,
+  `master of puppets` 99 lives, `ping pong`/`we will rock you`/`feuerwuxe` bounce/laser/spread to
+  4, `crazy volcanos` harmless volcano balls (the volcanos fire every 15 instead of 50 frames),
+  `merry xmas` every kill drops a shield, rocket or powerline, `zerbiebomb` a shot with 11000
+  damage out of every enemy, `scott me up beamy` jumps to the end of the level. `pfundi`
+  destroys the ship and sets the lives to 1. The title resets volcanos, extras and bullettime.
+* **Common end of every frame** (`0x417bb6`, in all states): boss energy bar (only in the game,
+  with lives left and no game over), console, info mode (scroll position and speed, count and
+  memory of shots, debris, explosions and active enemies, digits from `font2.gfx`),
+  "Version 1.2" at the top left of title and menu, then `Flip` and the wait up to 10 ms.
+* **Options** without `Options.ini` (`0x419161`): effect on, joystick buttons 0..7, smoke off,
+  volumes 100/100. The shipped `Options.ini` consists of 13 zero bytes, so the remake takes the
+  values for a missing file.
+* **Saved games** `Takatis.SG1`..`SG6`, 48 bytes, every value +0x1966: stage, difficulty,
+  weapon, spread, laser, bounce, rockets, powerlines, lives, shield time, score, cheater. After
+  boss n the following stage is saved.
+* **Highscores** `Highscores.hsl`: 10 entries of 88 bytes with a checksum, default list from
+  Poke53280 (100000) to ZFX-Forum (10000). At game over "Game Over" rises from y=441 at 3 px per
+  frame, then the name entry follows, or a remark (not enough points, cheater).
 
-## Stand des Remakes
+## State of the remake
 
-Alle 12 Stages mit Original-Karten, -Bewegungsmustern, -Schadenswerten und -Gegnerverhalten,
-die sechs Endgegner als übersetzte Originalroutine mit 3D-Darstellung über WebGL, Effekte,
-Levelende, Intro, Speicherbildschirm und Abspann wie im Original, Musik über libopenmpt,
-Original-Sounds und -Sprachsamples.
+All 12 stages with the original maps, movement patterns, damage values and enemy behaviour,
+the six bosses as the translated original routine with 3D rendering via WebGL, effects, level
+end, intro, save screen and end sequence as in the original, music via libopenmpt, original
+sounds and speech samples.
 
-Startsequenz, Titel, Menü, Neues Spiel, Optionen, Hilfe, Highscores, Credits, die Abfrage beim
-Beenden und Game over mit Namenseingabe sind aus den Zustands-Handlern nachgebaut, samt Blenden
-und Escape-Sperre. Spielstände, Highscores und Optionen liegen im `localStorage` des Browsers.
-Die Option `0x4966b4` (Rauch hinter Debris1) ist anfangs aus und lässt sich in den Optionen
-einschalten.
+Start sequence, title, menu, new game, options, help, highscores, credits, the quit question,
+game over with name entry and the console are rebuilt from the state handlers, including the
+fades and the Escape latch. Saved games, highscores and options live in the browser's
+`localStorage`, separately for every browser. The option `0x4966b4` (smoke behind Debris1) is
+off at first and can be switched on in the options.
 
-Angenähert: Joystick (nur „Kein Joystick angeschlossen !“), „Quit Game“ blendet ab und kehrt zum
-Startbild des Remakes zurück, der Flaggeneffekt der Highscores vergleicht in Zeile 0 mit 0 statt mit
-Speicherresten, die Prüfsummen der Dateien entfallen, die Konsole schreibt mit einer Browserschrift
-statt der Windows-Systemschrift.
+Approximated: joystick (only "Kein Joystick angeschlossen !"), "Quit Game" fades out and
+returns to the remake's start screen, the highscore flag effect compares row 0 with 0 instead
+of leftover memory, the file checksums are left out, the console uses a browser font instead of
+the Windows system font, the frame rate is a fixed 75 fps.
 
-Hilfen des Remakes, die es im Original nicht gibt: Lautstärken starten bei 20 statt 100, Escape überspringt das Intro schon ab dem
-Poke53280-Logo (im Original erst ab dem ersten Intro-Bild), P Pause, F4 Stage überspringen bzw.
-Boss zerstören, F9 Infomodus, M Ton aus, −/+ Musiklautstärke.
+Remake helpers that the original does not have: volumes start at 20 instead of 100, Escape
+skips the intro from the Poke53280 logo on (in the original only from the first intro
+picture), P pause, F4 skip the stage or destroy the boss, F9 info mode, M sound off, −/+ music
+volume.
 
-## Der Patch für das Original
+The game texts stay German as in the original.
 
-`extracted/Takatis_patched.exe` ist die Original-EXE mit entfernter Anforderung
-`DDSCAPS_VIDEOMEMORY` an vier Stellen. Ohne diesen Patch scheitert das Spiel auf
-Windows 11 beim Anlegen der Scroll-Surface.
+## The patch for the original
+
+`extracted/Takatis_patched.exe` is the original EXE with the `DDSCAPS_VIDEOMEMORY` requirement
+removed in four places. Without this patch the game fails on Windows 11 when it creates the
+scroll surface.
