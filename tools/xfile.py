@@ -56,6 +56,7 @@ def parse_x(path):
             q = mm.end()
     # per-face-corner normals (MeshNormals: normal list plus one index list per face)
     normals = None
+    out['normals_raw'] = None
     m = re.search(r'MeshNormals\s*[\w]*\s*\{\s*(\d+)\s*;', txt)
     if m:
         nn = int(m.group(1))
@@ -66,6 +67,7 @@ def parse_x(path):
             mm = nv.match(txt, q)
             nl.append((float(mm.group(1)), float(mm.group(2)), float(mm.group(3))))
             q = mm.end()
+        out['normals_raw'] = nl
         fm = re.match(r'\s*(\d+)\s*;', txt[q:])
         q += fm.end()
         normals = []
@@ -113,3 +115,28 @@ def vertex_normals(verts, tris):
         l = math.sqrt(v[0] ** 2 + v[1] ** 2 + v[2] ** 2) or 1.0
         res.append((v[0] / l, v[1] / l, v[2] / l))
     return res
+
+
+def d3dfile_normals(verts, tris):
+    """Vertex normals as CD3DFileObject::ComputeNormals (DX7 d3dfile.cpp, 0x42e5d1 in Takatis.exe) makes them: per
+    triangle the normalised (P1-P0) x (P2-P1) is added to its three vertices, then every sum is normalised; sums
+    shorter than 0.1 become (0,0,1)."""
+    import math
+    n = [[0.0, 0.0, 0.0] for _ in verts]
+    for a, b, c in tris:
+        p0, p1, p2 = verts[a], verts[b], verts[c]
+        u = (p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2])
+        v = (p2[0] - p1[0], p2[1] - p1[1], p2[2] - p1[2])
+        x, y, z = u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]
+        l = math.sqrt(x * x + y * y + z * z)
+        if l == 0:
+            continue   # the original divides by zero here; a degenerate triangle adds nothing usable
+        for i in (a, b, c):
+            n[i][0] += x / l; n[i][1] += y / l; n[i][2] += z / l
+    out = []
+    for x, y, z in n:
+        l = math.sqrt(x * x + y * y + z * z)
+        if l < 0.1:
+            x, y, z, l = 0.0, 0.0, 1.0, 1.0
+        out.append((x / l, y / l, z / l))
+    return out

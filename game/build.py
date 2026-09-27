@@ -187,21 +187,21 @@ data['outro'] = {'stage': '', 'hint': '', 'theme': 7, 'screens': _scr, 'speed': 
 
 # 3D bosses: DirectX .x meshes as triangle lists in object space (per corner: position, normal, uv). The game scales
 # the vertices (CD3DFile::Scale) and applies the frame matrix and the world matrix at render time.
-from xfile import parse_x, triangulate, vertex_normals
+# The DX7 file loader (0x42ec30) uses a normal list only when it has exactly one normal per vertex (normal i for
+# vertex i, the face indices of MeshNormals are ignored) and computes smooth normals otherwise; only b06 qualifies.
+from xfile import parse_x, triangulate, d3dfile_normals
 data['meshes'] = {}
 for part in ['a01', 'b01', 'c01', 'a02', 'b02', '003', '004', '005', 'a06', 'b06']:
     x = parse_x(os.path.join(ROOT, 'assets', '3D', 'endboss_' + part + '.x'))
-    v, uv = x['verts'], x['uvs'] or [(0, 0)] * len(x['verts'])
-    smooth = vertex_normals(v, triangulate(x['faces']))
+    v, uv = x['verts'], x['uvs'] if x['uvs'] and len(x['uvs']) == len(x['verts']) else [(0, 0)] * len(x['verts'])
+    tris = triangulate(x['faces'])
+    nrm = x['normals_raw'] if x['normals_raw'] and len(x['normals_raw']) == len(v) else d3dfile_normals(v, tris)
     P, N, U = [], [], []
-    for fi, face in enumerate(x['faces']):
-        fn = x['normals'][fi] if x['normals'] else [smooth[k] for k in face]
-        for a, b, c in [(0, k, k + 1) for k in range(1, len(face) - 1)]:
-            for corner in (a, b, c):
-                vi = face[corner]
-                P += [round(q, 3) for q in v[vi]]
-                N += [round(q, 4) for q in fn[corner]]
-                U += [round(q, 4) for q in uv[vi]]
+    for tri in tris:
+        for vi in tri:
+            P += [round(q, 3) for q in v[vi]]
+            N += [round(q, 4) for q in nrm[vi]]
+            U += [round(q, 4) for q in uv[vi]]
     data['meshes'][part] = {'p': P, 'n': N, 'uv': U, 'm': x['matrix'] or [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
                             'tex': os.path.splitext(x['texture'] or '')[0].lower(), 'color': x['color'][:3]}
 
