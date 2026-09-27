@@ -59,7 +59,7 @@ SPRITES = {
     'shield': ('shield', 56, 34), 'powerups': ('powerups', 20, 20), 'star': ('star', 72, 72), 'blob': ('blob1', 12, 12),
     'pu_oneup': ('pu_oneup', 20, 20), 'pu_bounce': ('pu_bounce', 20, 20), 'pu_shield': ('pu_shield', 20, 20), 'pu_line': ('pu_line', 20, 20),
     'pu_spread': ('pu_spread', 20, 20), 'pu_laser': ('pu_laser', 20, 20), 'pu_rocket': ('pu_rocket', 20, 20),
-    'hudtop': ('hud-oben', 640, 16), 'hudbottom': ('hud-unten', 640, 48), 'energy': ('player-energy', 56, 9),
+    'hudtop': ('hud-oben', 640, 16), 'ws': ('ws', 7, 10), 'hudbottom': ('hud-unten', 640, 48), 'energy': ('player-energy', 56, 9),
     'font': ('font', 10, 14), 'font2': ('font2', 8, 10), 'bigfont': ('bigfont', 32, 32),
     'title': ('title', 640, 480), 'getready': ('getready', 329, 56), 'gameover': ('gameover', 429, 56), 'logo': ('logo', 640, 140),
     'endscreen': ('Endscreen', 640, 480), 'menu': ('menu', 224, 64), 'rahmen': ('rahmen', 32, 32), 'loading': ('loading', 280, 146),
@@ -73,7 +73,7 @@ SPRITES = {
     'e30': ('bumper', 40, 40), 'e31': ('timebomb', 48, 48), 'e32': ('sharpshooter', 32, 32), 'e33': ('containerfake', 36, 61),
     'dragontail': ('dragontail', 40, 40), 'drive': ('drive', 16, 16), 'rail': ('rail', 11, 32),
 }
-NOKEY = {'title', 'endscreen', 'loading'}
+NOKEY = {'title', 'endscreen', 'loading', 'ws'}
 
 data = {'sprites': {}, 'themes': {}, 'levels': [], 'sounds': {}}
 for k, (f, fw, fh) in SPRITES.items():

@@ -105,6 +105,14 @@ Adressen beziehen sich auf `extracted/Takatis.exe`.
   0x11 Shield, 0x12 BigExplosion, 0x13 Powerline, 0x15 Morph, 0x16 Laser2, 0x17 Bigshot, 0x18 Trigger,
   0x19 Klippikloppi, Sprache 9 online, 0xa bounce, 0xb spread, 0xc laser, 0xd homing, 0xe line, 0xf shield,
   0x10 1up, 0x14 bigone.
+* **Level-Objekte**: Die y-Koordinate ist eine Bildschirmkoordinate und enthält die 16 px der oberen HUD-Leiste.
+  Objekte werden aktiv, sobald sie den rechten Bildschirmrand erreichen.
+* **Speed-Trigger** (`0x40b326`): Typ 34..38 setzt die Scrollgeschwindigkeit auf 1..5, und zwar sofort beim Erreichen
+  des rechten Randes. Das Levelende ergibt sich allein aus der Scrollposition. Stage 4-1 scrollt ab Position 4270
+  mit −2 rückwärts und ab 2970 wieder mit 2 vorwärts (`0x41575f`).
+* **Pressen** (Typ 26/27, 64×256, Energie 10000) bewegen sich nur über ihr Bewegungsmuster (19–22).
+* **HUD** (`0x41c34c`): Waffenstufen als `ws.gfx`-Blöcke im Abstand von 7 px bei x=122 (Spread), 222 (Bounce),
+  322 (Laser); Raketen bei x=422, Powerlines bei x=522.
 * Es gibt **keine** kachelbasierte Kollision. Die Level-Arrays werden nur von der
   Zeichenfunktion `0x42bdb0` gelesen, das Original prüft Pixel auf der DirectDraw-Surface.
 

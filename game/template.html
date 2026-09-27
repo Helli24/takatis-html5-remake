@@ -193,7 +193,7 @@ function startLevel(i,fromScroll=0){G.level=i;const l=level();G.scroll=fromScrol
   G.enemies=[];G.shots=[];G.eshots=[];G.fx=[];G.items=[];G.lines=[];G.next=0;G.boss=null;G.bossDone=false;
   while(G.next<l.objects.length&&l.objects[G.next][1]<G.scroll)G.next++;
   // apply speed triggers already passed
-  for(let k=0;k<G.next;k++){const o=l.objects[k];if(o[0]>=34&&o[0]<=37)G.speed=o[0]-33;}
+  for(let k=0;k<G.next;k++){const o=l.objects[k];if(o[0]>=34&&o[0]<=38)G.speed=o[0]-33;}
   const keep=P;P=newPlayer();if(keep){P.weapon=keep.weapon;P.lvl=keep.lvl;P.rockets=keep.rockets;P.lines=keep.lines;}
   G.state='ready';G.timer=150;G.stageClear=false;musicPlay('level'+l.theme);}
 
@@ -203,9 +203,11 @@ function boxSolid(x,y,w,h){for(let yy=y;yy<=y+h;yy+=Math.min(16,h))for(let xx=x;
 function hit(a,b){return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;}
 
 // ---------- spawning
-function spawn(o){const [type,x,y,param,flag]=o;if(flag>G.diff)return;const sx=x-G.scroll;
-  if(type>=34&&type<=37){G.enemies.push({type,x:sx,y,w:16,h:16,static:true,trigger:true,speed:type-33,hp:1e9});return;}
-  if(type===38){G.enemies.push({type,x:sx,y,w:16,h:16,static:true,trigger:true,end:true,hp:1e9});return;}
+// level object y is in screen coordinates, i.e. it includes the 16 px HUD bar
+function spawn(o){const [type,x,y0,param,flag]=o;const y=y0-PY;if(flag>G.diff)return;const sx=x-G.scroll;
+  // speed triggers 34..38 = scroll speed 1..5 (0x40b326); they act the moment they reach the right screen edge,
+  // with sound and sparks at the ship only if the speed actually changes. The level end is the scroll position.
+  if(type>=34&&type<=38){if(G.speed!==type-33){G.speed=type-33;sfx('trigger',0.6);sparks(P.x-30,P.y-20);}return;}
   if(type>=3&&type<=8){const kind=['spread','laser','bounce','rocket','line','shield'][type-3];
     let stage=0;if(type<=5){stage=STAGE_TABLE[type-3][G.level]||0;}
     const empty=type<=5&&(!stage||P.lvl[type-3]>=stage); // primary container: fixed stage per level, empty if already owned
@@ -219,7 +221,6 @@ function spawn(o){const [type,x,y,param,flag]=o;if(flag>G.diff)return;const sx=x
     case 28:if(e.staticPath){e.vx=-2;e.vy=1.5;}break;
     case 30:if(e.staticPath)e.vy=1.5;break;
     case 17:e.armed=false;break;
-    case 26:case 27:e.ph=Math.random()*6;break;
     case 31:e.fuse=600;break;
   }
   if(type===9||type===33)e.item=ITEMS[3+(param%4)];
@@ -232,7 +233,7 @@ function stepPath(e){e.x+=e.dx-G.speed;e.y+=e.dy;
   if(--e.cnt>0)return;
   e.seg++;let s=e.path[e.seg];
   if(!s||s[2]===-3){e.seg=0;s=e.path[0];}
-  else if(s[2]===-4){e.seg=0;s=e.path[0];e.x=660;e.y=200;e.dx=s[0];e.dy=s[1];e.cnt=(e.path[1]||s)[2];return;}
+  else if(s[2]===-4){e.seg=0;s=e.path[0];e.x=660;e.y=200-PY;e.dx=s[0];e.dy=s[1];e.cnt=(e.path[1]||s)[2];return;}
   e.dx=s[0];e.dy=s[1];e.cnt=s[2];}
 // ---------- effects
 function explode(x,y,big,player){
@@ -381,10 +382,9 @@ function updateShots(){
 function eshot(x,y,vx,vy,spr,opt={}){const s=S[spr];G.eshots.push({x,y,w:s.fw,h:s.fh,vx,vy,spr,f:0,fixed:opt.frame,grav:opt.grav,ghost:opt.ghost,world:opt.world});}
 function shootAt(e,speed=3,spr='bullet',size=8){const cx=e.x+e.w/2,cy=e.y+e.h/2;const ang=Math.atan2(P.y+17-cy,P.x+24-cx);G.eshots.push({x:cx-size/2,y:cy-size/2,w:size,h:size,vx:Math.cos(ang)*speed,vy:Math.sin(ang)*speed,spr,f:0});}
 function updateEnemies(){const l=level();
-  while(G.next<l.objects.length&&l.objects[G.next][1]<=G.scroll+W+8){spawn(l.objects[G.next]);G.next++;}
+  while(G.next<l.objects.length&&l.objects[G.next][1]<=G.scroll+W){spawn(l.objects[G.next]);G.next++;}
   for(const e of G.enemies){e.t++;if(e.flash)e.flash--;
-    if(e.trigger){e.x-=G.speed;}else stepPath(e);
-    if(e.trigger){if(e.x<=P.x+24&&!e.fired){e.fired=true;if(e.end){if(G.level%2===1){if(!G.boss&&!G.bossDone)bossStart();}else G.stageClear=true;}else{G.speed=e.speed;sfx('trigger',0.6);sparks(e.x+8,e.y+8);}}continue;}
+    stepPath(e);
     const cx=e.x+e.w/2,cy=e.y+e.h/2,dist=Math.abs(cx-(P.x+24));
     switch(e.type){
       case 0:e.f+=e.rot;break;
@@ -402,7 +402,7 @@ function updateEnemies(){const l=level();
       case 16:e.f=animFrame(e);if(dist<260&&!P.dead){P.x+=Math.sign(cx-(P.x+24))*0.9;P.y+=Math.sign(cy-(P.y+17))*0.5;}break;
       case 17:if(!e.armed&&Math.abs(cx-(P.x+24))<120)e.armed=true;if(e.armed){e.vy=Math.min(8,e.vy+0.35);e.y+=e.vy;if(solidAt(cx,e.y+e.h+1)||e.y>PH){explode(cx,cy,true);e.dead=true;}}break;
       case 25:e.y+=e.vy;if(solidAt(cx,e.y+e.h+2)||solidAt(cx,e.y-2)||e.y<0||e.y+e.h>PH)e.vy=-e.vy;e.f=Math.floor(e.t/8)%9+(e.vy>0?0:9);if(--e.shoot<=0&&e.x<W){eshot(e.x,e.y+27,-6,0,'elevatorshot');for(let k=0;k<5;k++)G.fx.push({spr:'blob',x:e.x+Math.random()*20-10,y:e.y+20+Math.random()*20-10,vx:-1,vy:0,f:0,rate:5,n:6});sfx('laser',0.3);e.shoot=110;}break;
-      case 26:case 27:{const ph=Math.sin(e.t*0.03+e.ph);e.off=(ph>0?ph:0)*140*(e.type===26?1:-1);break;}
+      case 26:case 27:break;   // presses move only by their path (patterns 19-22: 1-2 px per frame)
       case 28:if(!e.staticPath){e.f=animFrame(e);break;}e.x+=e.vx;e.y+=e.vy;if(solidAt(cx,e.y-1)||solidAt(cx,e.y+e.h+1)||e.y<0||e.y+e.h>PH){e.vy=-e.vy;e.y+=e.vy*2;}if(solidAt(e.x-1,cy)||solidAt(e.x+e.w+1,cy)){e.vx=-e.vx;e.x+=e.vx*2;}e.f=Math.floor(e.t/4);break;
       case 29:e.f=animFrame(e);if(e.x<W&&e.x>-80&&--e.shoot<=0){eshot(e.x+24,e.y-15,Math.floor(Math.random()*8)-4,-Math.floor(Math.random()*6),'volcanoball',{grav:true,ghost:true});sfx('laser2',0.3);e.shoot=50;}break;
       case 30:e.y+=e.vy;if(solidAt(cx,e.y-1)||solidAt(cx,e.y+e.h+1)||e.y<0||e.y+e.h>PH)e.vy=-e.vy;e.f=animFrame(e);
@@ -439,6 +439,7 @@ function updateEnemies(){const l=level();
   G.fx=G.fx.filter(f=>!f.dead);
 }
 function updatePlay(){
+  if(G.level===6){if(G.scroll===4270&&G.speed===1)G.speed=-2;else if(G.scroll===2970&&G.speed===-2)G.speed=2;}   // 4-1 scrolls backwards (0x41575f)
   G.scroll+=G.speed;
   if(G.scroll>=G.maxScroll){G.scroll=G.maxScroll;if(G.level%2===1&&!G.boss&&!G.bossDone){bossStart();}else if(!G.boss)G.stageClear=true;}
   if(G.boss)bossUpdate();
@@ -469,10 +470,9 @@ function drawPlayfield(){const l=level(),th=T[l.theme];
   for(const f of G.fx)frame(f.spr,f.f,f.x,f.y);
   ctx.restore();}
 function drawHUD(){const hb=S.hudbottom;ctx.drawImage(S.hudtop.img,0,0);ctx.drawImage(hb.img,0,H-48);
-  // weapon pips: spread @x~128, laser @x~230, bounce @x~330 (4 pips of 4px)
-  const pip=(x,n,sel)=>{for(let i=0;i<4;i++){ctx.fillStyle=i<n?(sel?'#ffe66d':'#6fd3ff'):'#1a2a44';ctx.fillRect(x+i*6,5,4,7);}};
-  pip(127,P.lvl[0],P.weapon===0);pip(232,P.lvl[1],P.weapon===1);pip(331,P.lvl[2],P.weapon===2);
-  ctx.fillStyle='#fff';ctx.font='bold 11px monospace';ctx.fillText(P.rockets,415,12);ctx.fillText(P.lines,523,12);
+  // weapon stages (0x41c34c): one ws.gfx block per stage, 7 px apart; spread x=122, bounce x=222, laser x=322
+  for(const [x,n] of [[122,P.lvl[0]],[222,P.lvl[2]],[322,P.lvl[1]]])for(let i=0;i<n;i++)ctx.drawImage(S.ws.img,x+i*7,3);
+  num(P.rockets,422+String(P.rockets).length*4,3);num(P.lines,522+String(P.lines).length*4,3);
   num(G.lives,98,457);num(level().stage,160,457);num(G.score,514,457);
   for(let i=0;i<3;i++){if(i<P.energy)frame('energy',0,196+i*96,439);}
   if(P.beam>0){const s=S.beamload;const wdt=P.beam;ctx.drawImage(s.img,0,0,wdt,24,197,452,wdt,24);}
