@@ -311,7 +311,7 @@ function startLevel(i,fromScroll=0,respawn=false){G.level=i;const l=level();G.sc
   if(respawn&&G.speed===0&&G.savedSpeed)G.speed=G.savedSpeed;
   if((i===6||i===8||i===10)&&G.speed<0)G.speed=1;   // the intro of 4-1, 5-1 and 6-1 turns a backward scroll forward (0x416715)
   G.enemies=[];G.shots=[];PART=[];EXPL=[];G.objSt=new Uint8Array(l.objects.length);G.pblits=[];G.eblits=[];
-  G.bigone=false;G.bossActive=false;BOSS.phase=null;BOSS.fadeMs=0;
+  G.bigone=false;G.bossActive=false;BOSS.phase=null;BOSS.fadeMs=0;G.bgx=G.bgxDraw=0;
   G.endPhase=0;G.endT=0;G.clearMusic=false;G.bossFade=0;WAVE.prev=WAVE.cur=null;sfxStop('shield');
   const keep=P;P=newPlayer();if(keep){P.weapon=keep.weapon;P.lvl=keep.lvl;P.rockets=keep.rockets;P.lines=keep.lines;}
   G.state='ready';G.timer=0;G.gamma=0;musicPlay('level'+l.theme);}
@@ -750,6 +750,9 @@ function ram(e){const blast=()=>{e.dead=true;G.score+=e.score;enemyBlast(e,15);}
     if(![26,27,22,23].includes(e.type))blast();}}
 // ---------- frame (order of the original main loop 0x41575a / 0x41c820)
 function updatePlay(){
+  // the background picture (NN.stc) is drawn from offset 0x49406c and wraps around; from scroll speed 3 on it moves
+  // 1 px per frame, except in 1-2 (0x41c858)
+  G.bgxDraw=G.bgx;if(G.speed>=3&&G.level!==1)G.bgx++;if(G.bgx===640)G.bgx=0;
   if(G.level===6){if(G.scroll===4270&&G.speed===1)G.speed=-2;else if(G.scroll===2970&&G.speed===-2)G.speed=2;}   // 4-1 scrolls backwards (0x41575f)
   G.scroll+=G.speed;
   levelRoutine();   // enemies, boss, tile pass (0x42bdb0)
@@ -854,7 +857,7 @@ function drawLayer(map,w,ts,ox){const c0=Math.max(0,Math.floor(ox/32)),c1=Math.m
   for(let r=0;r<13;r++)for(let c=c0;c<=c1;c++){const t=map[r*w+c];if(!t)continue;ctx.drawImage(ts,(t%10)*32,Math.floor(t/10)*32,32,32,c*32-ox,r*32,32,32);}}
 function drawPlayfield(){const l=level(),th=T[l.theme];
   ctx.save();ctx.beginPath();ctx.rect(0,PY,W,PH);ctx.clip();ctx.translate(0,PY);
-  ctx.drawImage(th.stc,0,0);
+  {const o=G.bgxDraw||0;ctx.drawImage(th.stc,o,0,W-o,PH,0,0,W-o,PH);if(o>0)ctx.drawImage(th.stc,0,0,o,PH,W-o,0,o,PH);}
   drawLayer(l.A,l.wa,th.tsb,Math.floor(G.scroll/2));
   // draw order of 0x42bdb0: the presses between the two layers, all other enemies on top of the foreground, each as
   // the enemy routine blitted it
