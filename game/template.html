@@ -750,10 +750,34 @@ function snapshot(c){const g=c.getContext('2d'),keep=ctx;ctx=g;try{drawPlayfield
 function fadeStart(ms,done){G.fade={ms,t:0,done,img:offscreen()};G.fade.img.getContext('2d').drawImage(cv,0,0);G.state='fadeout';}
 function fadeStep(){const f=G.fade;f.t+=1000/FPS;G.gamma=Math.max(0,100-Math.floor(f.t/f.ms));
   if(f.t>=100*f.ms){G.fade=null;G.gamma=100;f.done();}}
-// ---------- save screen after bosses 1-5 (state 7, 0x423400) and the end (state 10, 0x42a250)
-function saveStart(){}
-function saveStep(){G.state='play';}
-function drawSave(){}
+// ---------- frame of 32x32 tiles from rahmen.gfx (0x41ff00): w+1 by h+1 tiles, corners, edges and fill
+function rahmen(x,y,w,h){const im=S.rahmen.img,b=(sx,sy,dx,dy)=>ctx.drawImage(im,sx,sy,32,32,dx,dy,32,32);
+  b(0,0,x,y);b(0,64,x,y+h*32);b(64,0,x+w*32,y);b(64,64,x+w*32,y+h*32);
+  for(let i=1;i<h;i++){b(0,32,x,y+i*32);b(64,32,x+w*32,y+i*32);}
+  for(let i=1;i<w;i++){b(32,0,x+i*32,y);b(32,64,x+i*32,y+h*32);}
+  for(let i=1;i<w;i++)for(let j=1;j<h;j++)b(32,32,x+i*32,y+j*32);}
+// ---------- save screen after bosses 1-5 (state 7, 0x423400): the last frame, a frame, six slots with stage, lives,
+// weapon stages, rockets, powerlines, skill and score. Cursor keys move (hit sound), Space/Enter saves the next
+// stage into the slot, Escape continues without saving (beam sound).
+function saveStart(){G.state='save';G.saveSel=0;G.saveLatch=false;G.saveImg=offscreen();G.saveImg.getContext('2d').drawImage(cv,0,0);}
+function saveStep(){const u=keys.ArrowUp,d=keys.ArrowDown;
+  if(u&&G.saveSel>0&&!G.saveLatch){G.saveSel--;G.saveLatch=true;sfx('hit');}
+  if(d&&G.saveSel<5&&!G.saveLatch){G.saveSel++;G.saveLatch=true;sfx('hit');}
+  if(!u&&!d&&!keys.ArrowLeft&&!keys.ArrowRight)G.saveLatch=false;
+  if(pressed.Escape){sfx('beam');G.saveSel=0;G.state='play';return;}
+  if(pressed.Space||pressed.Enter){writeSlot(G.saveSel,{level:G.level+1,score:G.score,lives:G.lives,lvl:P.lvl.slice(),weapon:P.weapon,rockets:P.rockets,lines:P.lines,diff:G.diff});G.state='play';}}
+function drawSave(){ctx.drawImage(G.saveImg,0,0);rahmen(64,96,15,8);
+  text('Save Game',275,120,1);text('Escape - Continue without Saving',198,350,0);
+  text('Slot',105,165,0);text('Stage',150,165,0);text('Lives',195,165,0);text('Skill Score',455,165,0);
+  for(const [x,s] of [[240,'pu_spread'],[285,'pu_bounce'],[330,'pu_laser'],[375,'pu_rocket'],[420,'pu_line']])ctx.drawImage(S[s].img,0,0,20,20,x,159,20,20);
+  for(let i=0;i<6;i++){const y=200+i*25,sv=readSlot(i);
+    if(!sv)text('-- empty Slot --',255,y,0);
+    else{text(String((sv.level>>1)+1),153,y,0);text('-',165,y,0);text(String(sv.level%2+1),177,y,0);text(String(sv.lives),210,y,0);
+      for(const [x,n] of [[240,sv.lvl[0]],[285,sv.lvl[2]],[330,sv.lvl[1]]])for(let k=0;k<n;k++)ctx.drawImage(S.ws.img,x+k*6,y);
+      text(String(sv.rockets),375,y,0);text(String(sv.lines),420,y,0);text(['Easy','Norm','Hard'][sv.diff],455,y,[2,4,1][sv.diff]);
+      text(String(sv.score),500,y,0);}
+    text(String(i+1),120,y,0);}
+  ctx.drawImage(S.star.img,48,0,24,24,90,194+G.saveSel*25,24,24);}
 function endStart(){G.state='end';G.timer=600;musicPlay('end');}
 
 // ---------- render
@@ -835,7 +859,7 @@ function render(){ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);
   else if(G.state==='ready'){   // intro (0x416301): black playfield, HUD, "Get ready" and the three lines of the stage
     drawHUD();frame('getready',0,160,180);for(const [y,s,c] of DATA.intro[G.level])drawCenter(s,y,c);}
   else{if(G.endPhase===2&&G.endT>=50&&WAVE.prev)ctx.drawImage(WAVE.prev,0,PY,W,PH,0,PY,W,PH);else drawPlayfield();drawHUD();}
-  if(G.state==='save')drawSave();
+  if(G.state==='save'){drawSave();return;}
   else if(G.state==='gameover'){frame('gameover',0,(W-429)/2,180);}
   else if(G.state==='pause'){ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(0,PY,W,PH);drawCenter('PAUSE',220,0);}
   else if(G.state==='quit'){const bx=150,by=190,bw=340,bh=110;
