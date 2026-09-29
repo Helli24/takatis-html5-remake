@@ -3,9 +3,12 @@ import os, sys, json, base64, struct, zlib
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, 'tools'))
-from takatis import Level, level_screens, level_speed, layer_a_width, load_bmp8
+from takatis import Level, level_screens, level_speed, layer_a_width, load_bmp8, wav_bytes
 
 EX = os.path.join(ROOT, 'extracted')
+if not os.path.isfile(os.path.join(EX, 'Takatis.exe')):   # first build: unpack the original installer
+    from prepare import prepare
+    print('unpacking the installer:', prepare(), 'entries')
 
 
 def png_bytes(w, h, rows):
@@ -122,12 +125,10 @@ SOUNDS = {'explosion': 'Explosion', 'bigexplosion': 'bigexplosion', 'spread': 'S
           'shield': 'Shield', 'rocket': 'Rocket', 'bounce': 'Bounce', 'beam': 'Beam', 'bigshot': 'BigShot', 'trigger': 'Trigger',
           'powerline': 'powerline', 'morph': 'morph', 'klippikloppi': 'klippikloppi'}
 for k, f in SOUNDS.items():
-    p = os.path.join(ROOT, 'assets', 'Sfx', f + '.wav')
-    data['sounds'][k] = 'data:audio/wav;base64,' + base64.b64encode(open(p, 'rb').read()).decode()
+    data['sounds'][k] = 'data:audio/wav;base64,' + base64.b64encode(wav_bytes(os.path.join(EX, 'Sfx', f + '.sfx'))).decode()
 SPEECH = {'intro': 'Intro', 'cheat': 'cheat', 'online': 'online', 'oneup': '1up', 'spread': 'spread', 'laser': 'laser', 'bounce': 'bounce', 'shield': 'shield', 'homing': 'homing', 'line': 'line', 'bigone': 'bigone'}
 for k, f in SPEECH.items():
-    p = os.path.join(ROOT, 'assets', 'Speech', f + '.wav')
-    data['sounds']['v_' + k] = 'data:audio/wav;base64,' + base64.b64encode(open(p, 'rb').read()).decode()
+    data['sounds']['v_' + k] = 'data:audio/wav;base64,' + base64.b64encode(wav_bytes(os.path.join(EX, 'Speech', f + '.spc'))).decode()
 
 
 # movement pattern table from Takatis.exe (.data at 0x4856c0, 64 entries x 0x140 bytes):
@@ -227,7 +228,7 @@ data['outro'] = {'stage': '', 'hint': '', 'theme': 7, 'screens': _scr, 'speed': 
 from xfile import parse_x, triangulate, d3dfile_normals
 data['meshes'] = {}
 for part in ['a01', 'b01', 'c01', 'a02', 'b02', '003', '004', '005', 'a06', 'b06']:
-    x = parse_x(os.path.join(ROOT, 'assets', '3D', 'endboss_' + part + '.x'))
+    x = parse_x(os.path.join(EX, '3D', 'endboss.' + part))
     v, uv = x['verts'], x['uvs'] if x['uvs'] and len(x['uvs']) == len(x['verts']) else [(0, 0)] * len(x['verts'])
     tris = triangulate(x['faces'])
     nrm = x['normals_raw'] if x['normals_raw'] and len(x['normals_raw']) == len(v) else d3dfile_normals(v, tris)
@@ -283,15 +284,17 @@ MUSIC = {'title': 'tl', 'level1': '1', 'level2': '2', 'level3': '3', 'level4': '
          'clear': 'sc', 'highscore': 'hs', 'end': 'es', 'boss': 'eb', 'credits': 'cr'}
 data['music'] = {}
 for k, f in MUSIC.items():
-    fp = os.path.join(ROOT, 'assets', 'Sfx', f + '.it')
+    fp = os.path.join(EX, 'Sfx', f + '.trk')   # the .trk files are plain Impulse Tracker modules
     data['music'][k] = 'data:application/octet-stream;base64,' + base64.b64encode(open(fp, 'rb').read()).decode()
 js = json.dumps(data, separators=(',', ':'))
 t = open(os.path.join(HERE, 'template.html'), encoding='utf-8').read()
 assert t.count('/*DATA*/') == 1
 out = os.path.join(HERE, 'takatis.html')
-lib = open(os.path.join(ROOT, 'libopenmpt.js'), encoding='utf-8', errors='ignore').read()
+lib = open(os.path.join(ROOT, 'lib', 'libopenmpt.js'), encoding='utf-8', errors='ignore').read()
 assert t.count('/*LIBOPENMPT*/') == 1 and t.count('/*WASM_B64*/') == 1 and t.count('/*BOSSASM*/') == 1
-wasm_b64 = base64.b64encode(open(os.path.join(ROOT, 'libopenmpt.wasm'), 'rb').read()).decode()
+wasm_b64 = base64.b64encode(open(os.path.join(ROOT, 'lib', 'libopenmpt.wasm'), 'rb').read()).decode()
+notice = open(os.path.join(ROOT, 'lib', 'LICENSE-libopenmpt.txt'), encoding='utf-8').read().replace('--', '- -')
+t = t.replace('<meta charset="utf-8">', '<meta charset="utf-8">\n<!--\n' + notice + '-->', 1)
 html = t.replace('/*BOSSASM*/', BOSS_JS).replace('/*DATA*/', js).replace('/*LIBOPENMPT*/', lib).replace('/*WASM_B64*/', wasm_b64)
 open(out, 'w', encoding='utf-8').write(html)
 print('wrote', out, os.path.getsize(out) // 1024, 'KB')

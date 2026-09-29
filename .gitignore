@@ -1,13 +1,6 @@
-# --- generated: rebuild with `python game/build.py` / tools/takatis.py
+# --- generated: unpacked from "Takatis Setup V1_2.exe" by tools/prepare.py, built by game/build.py
+extracted/
 game/takatis.html
-viewer/takatis-level-atlas.html
-viewer/data.json
-assets/
-assets_png/
-render/
-
-# --- large local reference material
-*.mp4
 
 # --- editor / OS
 .DS_Store

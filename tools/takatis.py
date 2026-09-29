@@ -196,6 +196,17 @@ def bmp8_to_png(src: str, dst: str, transparent_index=None):
 
 
 # ---------------------------------------------------------------- wav
+def wav_bytes(src: str) -> bytes:
+    """The contents of an .sfx/.spc file as a standard WAV file."""
+    d = bytearray(open(src, 'rb').read())
+    assert d[8:16] == b'LOSTsfx ', src
+    d[8:16] = b'WAVEfmt '
+    p = 20 + struct.unpack_from('<I', d, 16)[0]
+    assert d[p:p + 4] == b'twew', src
+    d[p:p + 4] = b'data'
+    return bytes(d)
+
+
 def fix_wav(src: str, dst: str):
     d = bytearray(open(src, 'rb').read())
     assert d[8:16] == b'LOSTsfx ', src

@@ -1,43 +1,85 @@
-# Takatis — Reverse Engineering and Browser Remake
+# Takatis — HTML5 Remake
 
-Analysis of the shoot 'em up **"Takatis – A Tribute To Manfred Trenz"** (Poke53280, version 1.2,
-January 2002, C++ / DirectX 7 / FMOD) and a playable remake in the browser that uses the
-original data.
+A faithful browser remake of the shoot 'em up **"Takatis – A Tribute To Manfred Trenz"**
+(Poke53280, version 1.2, January 2002, C++ / DirectX 7 / FMOD), a German freeware homage to
+Manfred Trenz's Katakis. The remake runs the original levels, graphics, music and sounds in any
+current browser, and its game logic is rebuilt from the original executable, value by value.
 
-> **Private repository.** The game is freeware, but `extracted/Copyright.txt` expressly forbids
-> modifying the program and using its files, graphics and sounds in any other way without
-> written permission from Poke53280. The developers are still active (winterworks GmbH) and,
-> according to their website, plan a re-release on Steam. This repository must therefore **not
-> be made public**. A publication could only cover the code without the game data, and even
-> then only after asking the authors.
+<!-- Play online: https://… (add the link once the game is hosted) -->
 
-## Layout
+## Credits
+
+**Takatis – A Tribute To Manfred Trenz** © 2002 Poke53280:
+
+| | |
+|---|---|
+| Programming | Heiko Kalista (TheWanderer) |
+| Graphics, music, level editor | Jörg Matthias Winterstein (Eiswuxe) |
+| 3D models | Michael Matzka (Skyrider) |
+| Voices | Alexandra Hertstein |
+| Intro voice | Heiko Kalista |
+| Voice recording | Seb Kugler @ Antiserum Studio |
+
+The complete credits and greetings of the original can be seen in the game (menu → Credits).
+
+The original graphics, levels, 3D models, music and sounds are used with the kind permission of
+Jörg Matthias Winterstein. They remain the property of their authors and are not covered by any
+licence of this repository.
+
+Music playback uses [libopenmpt](https://lib.openmpt.org/) (BSD licence, see
+`lib/LICENSE-libopenmpt.txt`).
+
+## How this remake was made
+
+The remake was created with the help of AI: Claude Code (Anthropic) unpacked the installer,
+disassembled `Takatis.exe` and rebuilt the game logic from the machine code step by step —
+enemy behaviour, weapons, level end, menus, console and cheats. The boss routine is translated
+directly from the machine code into JavaScript. A human steered the project, played and tested it
+and reported every difference until it played like the original.
+
+## Playing
+
+Open `game/takatis.html` (after building it, see below) in a browser, click into the page and
+play with the keyboard. Saved games, highscores and options are stored in the browser's
+`localStorage`.
+
+| Key | Action |
+|---|---|
+| Arrow keys | fly |
+| Space | primary weapon |
+| Ctrl | charge the beam |
+| Shift | rocket |
+| Enter | powerline |
+| 1 / 2 / 3, numpad 0 | spread / bounce / laser, next weapon |
+| F1 / F2 / Esc | help / volume / quit (as in the original) |
+| Tab | console (as in the original, try `help`) |
+| P, F4, F9, M, − / + | remake helpers: pause, skip stage, info mode, sound off, music volume |
+
+The game texts are German, as in the original.
+
+## Repository
 
 | Path | Contents |
 |---|---|
-| `Takatis Setup V1_2.exe` | original installer, the source of everything |
-| `extracted/` | the 203 files from the installer, unpacked statically |
+| `Takatis Setup V1_2.exe` | the original installer (version 1.2), the only input of the build |
 | `tools/takatis.py` | toolkit: installer unpacker, image decryption, WAV repair, level parser and writer, PNG renderer |
+| `tools/prepare.py` | unpacks the installer into `extracted/` and writes a patched `Takatis_patched.exe` (see below) |
 | `tools/xfile.py` | parser for the DirectX `.x` models of the bosses |
 | `game/bossvm.py` | translates the boss routine `0x4036d0`–`0x4086e1` of the EXE into JavaScript at build time |
 | `game/template.html` | source of the remake (engine, menus, enemies, bosses) |
-| `game/build.py` | builds `game/takatis.html` from it with all data embedded |
+| `game/build.py` | builds `game/takatis.html` with all data embedded |
 | `tests/` | browser tests with Playwright, run with `tests/run.sh` |
-| `viewer/takatis-analyse.html` | analysis report (German, state at the start of the project) |
-| `viewer/template.html` | source of the level atlas |
-| `libopenmpt.js`, `libopenmpt.wasm` | third-party library (BSD) that plays the Impulse Tracker music |
-
-Not checked in because they can be generated: `assets/`, `assets_png/`, `render/`,
-`game/takatis.html`, `viewer/takatis-level-atlas.html`, `viewer/data.json`.
+| `lib/` | libopenmpt (BSD) for the Impulse Tracker music |
 
 ## Building
 
 ```bash
+pip install pefile capstone
 python game/build.py        # writes game/takatis.html (about 14 MB, everything embedded)
 ```
 
-It needs `extracted/` and `assets/` (sounds and music in standard formats).
-`assets/` is generated from `extracted/`, see `tools/takatis.py`.
+The first build unpacks the installer into `extracted/`. The result is one self-contained HTML
+file that can be opened locally or put on any static web host (e.g. as `index.html`).
 
 ## Testing
 
@@ -51,7 +93,7 @@ all 12 stages played by a bot, game mechanics, laser, presses, a boss fight with
 menus with game over and name entry, loading a saved game, console and cheats. Screenshots and
 logs go to `tests/out/`.
 
-## File formats
+## Findings: file formats
 
 * **Installer**: NitroSetup 1.4 with its own LZSS variant. Flag byte MSB first, back reference
   16 bit big endian, 12 bit distance, 4 bit length plus 2.
@@ -73,7 +115,7 @@ logs go to `tests/out/`.
   ```
   Tiles are 32×32, a tileset has 10×10 tiles, index 0 is empty.
 
-## Findings from the machine code
+## Findings: machine code
 
 Addresses refer to `extracted/Takatis.exe`.
 
@@ -234,8 +276,7 @@ Addresses refer to `extracted/Takatis.exe`.
   memory of shots, debris, explosions and active enemies, digits from `font2.gfx`),
   "Version 1.2" at the top left of title and menu, then `Flip` and the wait up to 10 ms.
 * **Options** without `Options.ini` (`0x419161`): effect on, joystick buttons 0..7, smoke off,
-  volumes 100/100. The shipped `Options.ini` consists of 13 zero bytes, so the remake takes the
-  values for a missing file.
+  volumes 100/100. The installer ships no `Options.ini`, so the remake starts with these values.
 * **Saved games** `Takatis.SG1`..`SG6`, 48 bytes, every value +0x1966: stage, difficulty,
   weapon, spread, laser, bounce, rockets, powerlines, lives, shield time, score, cheater. After
   boss n the following stage is saved.
@@ -266,10 +307,8 @@ skips the intro from the Poke53280 logo on (in the original only from the first 
 picture), P pause, F4 skip the stage or destroy the boss, F9 info mode, M sound off, −/+ music
 volume.
 
-The game texts stay German as in the original.
-
 ## The patch for the original
 
-`extracted/Takatis_patched.exe` is the original EXE with the `DDSCAPS_VIDEOMEMORY` requirement
-removed in four places. Without this patch the game fails on Windows 11 when it creates the
-scroll surface.
+`tools/prepare.py` also writes `extracted/Takatis_patched.exe`: the original EXE with the
+`DDSCAPS_VIDEOMEMORY` request removed in four places. Without it the original fails on
+Windows 11 when it creates the scroll surface.
