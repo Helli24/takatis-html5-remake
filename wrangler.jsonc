@@ -1,0 +1,7 @@
+// Cloudflare Worker that serves the built game (dist/index.html) as a static asset.
+// Build: pip install -r requirements.txt && python game/build.py
+{
+  "name": "takatis",
+  "compatibility_date": "2026-09-30",
+  "assets": { "directory": "./dist" }
+}
