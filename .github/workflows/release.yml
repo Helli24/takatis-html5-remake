@@ -1,0 +1,28 @@
+# When a release is published on GitHub, build the game from that tag and attach it as takatis.html.
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  attach-game:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Build
+        run: |
+          pip install -r requirements.txt
+          python game/build.py
+          cp dist/index.html takatis.html
+      - name: Attach to the release
+        run: gh release upload "$TAG" takatis.html --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
