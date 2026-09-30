@@ -35,17 +35,20 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
         run: |
-          if gh release view "$TAG" > /dev/null 2>&1; then
-            gh release upload "$TAG" takatis.html --clobber
-          else
-            cat > notes.md <<NOTES
+          cat > notes.md <<NOTES
           HTML5 remake of "Takatis – A Tribute To Manfred Trenz" (Poke53280, 2002), made by Claude from the original EXE.
-
-          **Play online:** https://takatis.thellmund.de
 
           **Offline:** download \`takatis.html\` below and open it in a browser, click into the page and play with the keyboard. Everything is in this one file.
 
           How it was made: [docs/MAKING-OF.md](https://github.com/${{ github.repository }}/blob/$TAG/docs/MAKING-OF.md)
           NOTES
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+              # started by hand for an existing release: only renew its notes, the attached file stays as built
+              gh release edit "$TAG" --notes-file notes.md
+            else
+              gh release upload "$TAG" takatis.html --clobber
+            fi
+          else
             gh release create "$TAG" takatis.html --title "$TAG" --notes-file notes.md --target "$GITHUB_SHA"
           fi
