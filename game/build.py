@@ -295,6 +295,15 @@ assert t.count('/*LIBOPENMPT*/') == 1 and t.count('/*WASM_B64*/') == 1 and t.cou
 wasm_b64 = base64.b64encode(open(os.path.join(ROOT, 'lib', 'libopenmpt.wasm'), 'rb').read()).decode()
 notice = open(os.path.join(ROOT, 'lib', 'LICENSE-libopenmpt.txt'), encoding='utf-8').read().replace('--', '- -')
 t = t.replace('<meta charset="utf-8">', '<meta charset="utf-8">\n<!--\n' + notice + '-->', 1)
+# which build this is: the commit and its date, shown under the credits
+import subprocess
+try:
+    rev, day = subprocess.run(['git', 'log', '-1', '--format=%h %cs'], cwd=ROOT, capture_output=True, text=True, check=True).stdout.split()
+    y, m, d = day.split('-')
+    build = 'Build %s · %s.%s.%s' % (rev, d, m, y)
+except Exception:
+    build = 'lokaler Build'
+t = t.replace('/*BUILD*/', build)
 html = t.replace('/*BOSSASM*/', BOSS_JS).replace('/*DATA*/', js).replace('/*LIBOPENMPT*/', lib).replace('/*WASM_B64*/', wasm_b64)
 open(out, 'w', encoding='utf-8').write(html)
 site = os.path.join(ROOT, 'dist')   # the same page as dist/index.html, ready for a static host
