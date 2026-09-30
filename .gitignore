@@ -1,6 +1,7 @@
 # --- generated: unpacked from "Takatis Setup V1_2.exe" by tools/prepare.py, built by game/build.py
 extracted/
 game/takatis.html
+dist/
 
 # --- editor / OS
 .DS_Store

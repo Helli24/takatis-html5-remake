@@ -11,6 +11,7 @@
   canvas{image-rendering:pixelated;image-rendering:crisp-edges;background:#000;outline:none;display:block}
   #msg[hidden]{display:none}#msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--accent);font:12px 'Press Start 2P',monospace;line-height:1.6;text-align:center;pointer-events:none}
   .bar{color:var(--muted);font-size:12px;display:flex;gap:18px;flex-wrap:wrap;justify-content:center;max-width:900px;padding:0 12px}
+  .bar a{color:var(--accent);text-decoration:none}.bar a:hover{text-decoration:underline}
   kbd{font:11px ui-monospace,Consolas,monospace;background:#161c26;border:1px solid #2a3442;border-bottom-width:2px;padding:1px 5px;border-radius:3px;color:var(--text)}
 </style>
 <div id="wrap"><canvas id="c" width="640" height="480" tabindex="0"></canvas><div id="msg">LOADING…</div></div>
@@ -19,6 +20,7 @@
   <span><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> Spread/Bounce/Laser</span><span><kbd>F1</kbd> Hilfe</span><span><kbd>F2</kbd> Lautstärke</span><span><kbd>Esc</kbd> Spiel beenden</span><span><kbd>P</kbd> Pause</span><span><kbd>F4</kbd> Stage überspringen</span><span><kbd>Tab</kbd> Konsole</span><span><kbd>F9</kbd> Infomodus</span><span><kbd>M</kbd> Sound</span><span><kbd>-</kbd><kbd>+</kbd> Musik</span>
 </div>
 <div class="bar">Takatis – A Tribute To Manfred Trenz © 2002 Poke53280 (Heiko Kalista, Jörg M. Winterstein) · inoffizielles Fan-Remake im Browser</div>
+<div class="bar"><a href="https://github.com/Helli24/takatis-html5-remake" target="_blank" rel="noopener">Quellcode und Making-of auf GitHub</a></div>
 <script>var __wasmBytes=(function(){const b=atob('/*WASM_B64*/'),a=new Uint8Array(b.length);for(let i=0;i<b.length;i++)a[i]=b.charCodeAt(i);return a.buffer;})();var libopenmpt={wasmBinary:__wasmBytes,instantiateWasm:function(info,receive){WebAssembly.instantiate(__wasmBytes,info).then(function(r){window.__wasmInst=r.instance;window.__wasmInfo=info;receive(r.instance,r.module);}).catch(function(e){console.error('libopenmpt wasm',e);});return {};},onRuntimeInitialized:function(){window.__mptReady=true;}};</script>
 <script>/*LIBOPENMPT*/</script>
 <script>
