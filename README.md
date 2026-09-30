@@ -5,6 +5,9 @@ A faithful browser remake of the shoot 'em up **"Takatis – A Tribute To Manfre
 Manfred Trenz's Katakis. The remake runs the original levels, graphics, music and sounds in any
 current browser, and its game logic is rebuilt from the original executable, value by value.
 
+**This remake was made by Claude** (Anthropic's AI, in Claude Code) from the original EXE — see
+[docs/MAKING-OF.md](docs/MAKING-OF.md) for how.
+
 <!-- Play online: https://… (add the link once the game is hosted) -->
 
 ## Credits
@@ -22,20 +25,22 @@ current browser, and its game logic is rebuilt from the original executable, val
 
 The complete credits and greetings of the original can be seen in the game (menu → Credits).
 
-The original graphics, levels, 3D models, music and sounds are used with the kind permission of
-Jörg Matthias Winterstein. They remain the property of their authors and are not covered by any
-licence of this repository.
+This remake and its source are published with the kind permission of Jörg Matthias Winterstein
+(Eiswuxe). The original graphics, levels, 3D models, music and sounds remain the property of
+their authors and are not covered by any licence of this repository.
 
 Music playback uses [libopenmpt](https://lib.openmpt.org/) (BSD licence, see
 `lib/LICENSE-libopenmpt.txt`).
 
 ## How this remake was made
 
-The remake was created with the help of AI: Claude Code (Anthropic) unpacked the installer,
+The remake was made by Claude (Anthropic) in Claude Code: it unpacked the installer,
 disassembled `Takatis.exe` and rebuilt the game logic from the machine code step by step —
 enemy behaviour, weapons, level end, menus, console and cheats. The boss routine is translated
 directly from the machine code into JavaScript. A human steered the project, played and tested it
-and reported every difference until it played like the original.
+and reported every difference until it played like the original. The original game was never
+run during the work; everything comes from static analysis. The full story, including the
+limits of this approach, is in [docs/MAKING-OF.md](docs/MAKING-OF.md).
 
 ## Playing
 
@@ -69,6 +74,7 @@ The game texts are German, as in the original.
 | `game/template.html` | source of the remake (engine, menus, enemies, bosses) |
 | `game/build.py` | builds `game/takatis.html` with all data embedded |
 | `tests/` | browser tests with Playwright, run with `tests/run.sh` |
+| `docs/MAKING-OF.md` | how Claude rebuilt the game from the EXE |
 | `lib/` | libopenmpt (BSD) for the Impulse Tracker music |
 
 ## Building
