@@ -1,8 +1,14 @@
-# Releases: pushing a tag v… (or publishing a release on GitHub) builds the game from that tag and publishes it as
-# takatis.html in the release. The release is created if it does not exist yet.
+# Releases: started by hand (Actions → Release → Run workflow, with a version such as v1.0), by pushing a tag v… or by
+# publishing a release on GitHub. The game is built from that state and attached as takatis.html; the release (and,
+# when started by hand, its tag on the current commit) is created if it does not exist yet.
 name: Release
 
 on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag, e.g. v1.0'
+        required: true
   push:
     tags: ['v*']
   release:
@@ -27,7 +33,7 @@ jobs:
       - name: Create the release or update its file
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
         run: |
           if gh release view "$TAG" > /dev/null 2>&1; then
             gh release upload "$TAG" takatis.html --clobber
@@ -41,5 +47,5 @@ jobs:
 
           How it was made: [docs/MAKING-OF.md](https://github.com/${{ github.repository }}/blob/$TAG/docs/MAKING-OF.md)
           NOTES
-            gh release create "$TAG" takatis.html --title "$TAG" --notes-file notes.md --verify-tag
+            gh release create "$TAG" takatis.html --title "$TAG" --notes-file notes.md --target "$GITHUB_SHA"
           fi
