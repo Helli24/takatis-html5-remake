@@ -1,7 +1,10 @@
-# When a release is published on GitHub, build the game from that tag and attach it as takatis.html.
+# Releases: pushing a tag v… (or publishing a release on GitHub) builds the game from that tag and publishes it as
+# takatis.html in the release. The release is created if it does not exist yet.
 name: Release
 
 on:
+  push:
+    tags: ['v*']
   release:
     types: [published]
 
@@ -9,7 +12,7 @@ permissions:
   contents: write
 
 jobs:
-  attach-game:
+  release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,8 +24,22 @@ jobs:
           pip install -r requirements.txt
           python game/build.py
           cp dist/index.html takatis.html
-      - name: Attach to the release
-        run: gh release upload "$TAG" takatis.html --clobber
+      - name: Create the release or update its file
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.event.release.tag_name }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" takatis.html --clobber
+          else
+            cat > notes.md <<NOTES
+          HTML5 remake of "Takatis – A Tribute To Manfred Trenz" (Poke53280, 2002), made by Claude from the original EXE.
+
+          **Play online:** https://takatis.thellmund.de
+
+          **Offline:** download \`takatis.html\` below and open it in a browser, click into the page and play with the keyboard. Everything is in this one file.
+
+          How it was made: [docs/MAKING-OF.md](https://github.com/${{ github.repository }}/blob/$TAG/docs/MAKING-OF.md)
+          NOTES
+            gh release create "$TAG" takatis.html --title "$TAG" --notes-file notes.md --verify-tag
+          fi
