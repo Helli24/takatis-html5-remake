@@ -80,12 +80,25 @@ The game texts are German, as in the original.
 ## Building
 
 ```bash
-pip install pefile capstone
+pip install -r requirements.txt
 python game/build.py        # writes game/takatis.html (about 14 MB, everything embedded)
 ```
 
 The first build unpacks the installer into `extracted/`. The result is one self-contained HTML
-file that can be opened locally or put on any static web host (e.g. as `index.html`).
+file that can be opened locally; the build also writes the same page as `dist/index.html` for a
+static web host.
+
+### Hosting on Cloudflare Pages
+
+Connect the repository in Cloudflare Pages (Workers & Pages → Create → Pages → Connect to Git)
+with these settings, and every push to `master` publishes a new version:
+
+| Setting | Value |
+|---|---|
+| Framework preset | None |
+| Build command | `pip install -r requirements.txt && python game/build.py` |
+| Build output directory | `dist` |
+| Environment variable | `PYTHON_VERSION` = `3.11` |
 
 ## Testing
 

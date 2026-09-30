@@ -297,4 +297,7 @@ notice = open(os.path.join(ROOT, 'lib', 'LICENSE-libopenmpt.txt'), encoding='utf
 t = t.replace('<meta charset="utf-8">', '<meta charset="utf-8">\n<!--\n' + notice + '-->', 1)
 html = t.replace('/*BOSSASM*/', BOSS_JS).replace('/*DATA*/', js).replace('/*LIBOPENMPT*/', lib).replace('/*WASM_B64*/', wasm_b64)
 open(out, 'w', encoding='utf-8').write(html)
+site = os.path.join(ROOT, 'dist')   # the same page as dist/index.html, ready for a static host
+os.makedirs(site, exist_ok=True)
+open(os.path.join(site, 'index.html'), 'w', encoding='utf-8').write(html)
 print('wrote', out, os.path.getsize(out) // 1024, 'KB')
