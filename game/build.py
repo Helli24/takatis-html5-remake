@@ -59,6 +59,29 @@ def gfx(name, fw=None, fh=None, key=True):
     return {'src': src, 'w': w, 'h': h, 'fw': fw, 'fh': fh, 'cols': w // fw, 'frames': (w // fw) * (h // fh)}
 
 
+def favicon():
+    """The ship (first frame of player.gfx) trimmed to its pixels and centred on a square, as the page icon."""
+    w, h, pal, px = load_bmp8(os.path.join(EX, 'GFX', gfxdir['player.gfx']))
+    pal = [q565(c) for c in pal]
+    fw, fh = 49, 34
+    on = [(x, y) for y in range(fh) for x in range(fw) if pal[px[y * w + x]] != KEY565]
+    x0, x1 = min(x for x, _ in on), max(x for x, _ in on)
+    y0, y1 = min(y for _, y in on), max(y for _, y in on)
+    n = max(x1 - x0, y1 - y0) + 1
+    ox, oy = (n - (x1 - x0 + 1)) // 2, (n - (y1 - y0 + 1)) // 2
+    rows = []
+    for yy in range(n):
+        row = bytearray()
+        for xx in range(n):
+            x, y = x0 + xx - ox, y0 + yy - oy
+            if x0 <= x <= x1 and y0 <= y <= y1 and pal[px[y * w + x]] != KEY565:
+                row += bytes(pal[px[y * w + x]]) + b'\xff'
+            else:
+                row += b'\0\0\0\0'
+        rows.append(bytes(row))
+    return 'data:image/png;base64,' + base64.b64encode(png_bytes(n, n, rows)).decode()
+
+
 # name: (file, frame w, frame h)
 SPRITES = {
     'player': ('player', 49, 34), 'player2': ('player2', 49, 34), 'console': ('console', 640, 240),
@@ -304,6 +327,7 @@ try:
 except Exception:
     build = 'lokaler Build'
 t = t.replace('/*BUILD*/', build)
+t = t.replace('/*FAVICON*/', favicon())
 html = t.replace('/*BOSSASM*/', BOSS_JS).replace('/*DATA*/', js).replace('/*LIBOPENMPT*/', lib).replace('/*WASM_B64*/', wasm_b64)
 open(out, 'w', encoding='utf-8').write(html)
 site = os.path.join(ROOT, 'dist')   # the same page as dist/index.html, ready for a static host
