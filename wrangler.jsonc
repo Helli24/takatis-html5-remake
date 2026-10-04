@@ -3,9 +3,7 @@
 {
   "name": "takatis",
   "compatibility_date": "2026-09-30",
-  // temporary: every request runs worker/log.js first, which logs it and passes it on to the assets
-  "main": "worker/log.js",
-  "assets": { "directory": "./dist", "binding": "ASSETS", "run_worker_first": true },
+  "assets": { "directory": "./dist" },
   "observability": { "enabled": true },
   "preview_urls": false
 }
