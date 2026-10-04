@@ -85,7 +85,7 @@ python game/build.py        # writes game/takatis.html (about 14 MB, everything 
 ```
 
 The first build unpacks the installer into `extracted/`. The result is one self-contained HTML
-file that can be opened locally; the build also writes the same page as `dist/index.html` for a
+file that can be opened locally; the build also writes the same page as `dist/index.html` (plus a `robots.txt`) for a
 static web host.
 
 ### Hosting on Cloudflare Pages

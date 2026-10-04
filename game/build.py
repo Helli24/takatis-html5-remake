@@ -333,4 +333,5 @@ open(out, 'w', encoding='utf-8').write(html)
 site = os.path.join(ROOT, 'dist')   # the same page as dist/index.html, ready for a static host
 os.makedirs(site, exist_ok=True)
 open(os.path.join(site, 'index.html'), 'w', encoding='utf-8').write(html)
+open(os.path.join(site, 'robots.txt'), 'w').write('User-agent: *\nAllow: /\n')   # all crawlers welcome
 print('wrote', out, os.path.getsize(out) // 1024, 'KB')
